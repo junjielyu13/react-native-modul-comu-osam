@@ -38,3 +38,7 @@ yarn-error.log*
 .pnp.*
 
 frontend_rn_app/
+
+# Firebase config (supplied per-environment — see README "Example app" section)
+example/android/app/google-services.json
+example/ios/Example/GoogleService-Info.plist

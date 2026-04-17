@@ -36,29 +36,29 @@ public class OSAMModule: NSObject, RCTBridgeModule {
   }()
 
   @objc
-  func checkVersionControl(
+  func versionControl(
     _ languageCode: String,
     resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
     osamCommons.versionControl(language: parseLanguage(languageCode)) { response in
-      resolver(["status": response.name, "description": response.debugDescription])
+      resolver(["status": response.name])
     }
   }
 
   @objc
-  func showRatingDialog(
+  func rating(
     _ languageCode: String,
     resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
     osamCommons.rating(language: parseLanguage(languageCode)) { response in
-      resolver(["status": response.name, "description": response.debugDescription])
+      resolver(["status": response.name])
     }
   }
 
   @objc
-  func getDeviceInformation(
+  func deviceInformation(
     _ resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
@@ -76,7 +76,7 @@ public class OSAMModule: NSObject, RCTBridgeModule {
   }
 
   @objc
-  func getAppInformation(
+  func appInformation(
     _ resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
@@ -89,6 +89,66 @@ public class OSAMModule: NSObject, RCTBridgeModule {
         ])
       } else {
         rejecter("APP_INFO_ERROR", "Failed to get app information", nil)
+      }
+    }
+  }
+
+  @objc
+  func changeLanguageEvent(
+    _ languageCode: String,
+    resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    osamCommons.changeLanguageEvent(language: parseLanguage(languageCode)) { response in
+      resolver(["status": response.name])
+    }
+  }
+
+  @objc
+  func firstTimeOrUpdateEvent(
+    _ languageCode: String,
+    resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    osamCommons.firstTimeOrUpdateEvent(language: parseLanguage(languageCode)) { response in
+      resolver(["status": response.name])
+    }
+  }
+
+  @objc
+  func subscribeToCustomTopic(
+    _ topic: String,
+    resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    osamCommons.subscribeToCustomTopic(topic: topic) { response in
+      resolver(["status": response.name])
+    }
+  }
+
+  @objc
+  func unsubscribeToCustomTopic(
+    _ topic: String,
+    resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    osamCommons.unsubscribeToCustomTopic(topic: topic) { response in
+      resolver(["status": response.name])
+    }
+  }
+
+  @objc
+  func getFCMToken(
+    _ resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    osamCommons.getFCMToken { response in
+      if let success = response as? TokenResponse.Success {
+        resolver(["token": success.token])
+      } else if let errorResp = response as? TokenResponse.Error {
+        rejecter("FCM_TOKEN_ERROR", errorResp.error.message ?? "Failed to get FCM token", nil)
+      } else {
+        rejecter("FCM_TOKEN_ERROR", "Unknown TokenResponse", nil)
       }
     }
   }

@@ -1478,7 +1478,7 @@ PODS:
     - React-jsiexecutor
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
-  - react-native-modul-comu-osam (0.1.0):
+  - react-native-modul-comu-osam (0.2.0):
     - FirebaseAnalytics
     - FirebaseCrashlytics
     - FirebaseMessaging
@@ -2123,7 +2123,7 @@ SPEC CHECKSUMS:
   React-logger: cc55ca6e50aeb31216c0a9dec30871cac776ef9a
   React-Mapbuffer: 3dec40b2c7bc9b2a0e89079adecec8553623b28a
   React-microtasksnativemodule: 5b347f4a4b6e2451a55301ed935bcc5261ba87cf
-  react-native-modul-comu-osam: 4676ac439a7a520d55ad2765f8709768f233160e
+  react-native-modul-comu-osam: 122ff055e717dff1e6e3eaa35f7d088d1ddfe118
   React-NativeModulesApple: e8e6b7992257fe68f77d5ce39f34384cd6226edf
   React-oscompat: 74eb4badd12e93899f37a5dbb03d8a638011a292
   React-perflogger: dba4ffef10c54537fa33cb2580cf6d4c48458d36

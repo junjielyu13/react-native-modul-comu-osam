@@ -1,6 +1,6 @@
 {
   "name": "react-native-modul-comu-osam",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "React Native bridge for Barcelona City Council's OSAM common module (version control, rating, device/app info)",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",

@@ -6,14 +6,26 @@ Context for future Claude Code sessions working in this repo.
 
 A React Native library — npm package name **`react-native-modul-comu-osam`** —
 that wraps Barcelona City Council's [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
-(a Kotlin Multiplatform shared module). It exposes four native methods to JS:
+(a Kotlin Multiplatform shared module). Method names match the upstream
+`OSAMCommons` API one-to-one:
 
-- `checkVersionControl(languageCode)` — force / recommended update dialog
-- `showRatingDialog(languageCode)` — native rating prompt
-- `getDeviceInformation()` — platform name / version / model
-- `getAppInformation()` — app name / versionName / versionCode
+- `versionControl(languageCode)` — force / recommended update dialog
+- `rating(languageCode)` — native rating prompt
+- `deviceInformation()` — platform name / version / model
+- `appInformation()` — app name / versionName / versionCode
+- `changeLanguageEvent(languageCode)` — log language change, rotate FCM topics
+- `firstTimeOrUpdateEvent(languageCode)` — initial / post-update FCM topic setup
+- `subscribeToCustomTopic(topic)` / `unsubscribeToCustomTopic(topic)`
+- `getFCMToken()` — resolves `{ token }` or rejects
 
 Supported languages: `ca` / `es` / `en`.
+
+Response enum values returned in `.status`:
+- versionControl → `ACCEPTED | DISMISSED | CANCELLED | ERROR`
+- rating / appInformation → `ACCEPTED | DISMISSED | ERROR`
+- deviceInformation → `ACCEPTED | ERROR`
+- changeLanguageEvent / firstTimeOrUpdateEvent → `SUCCESS | UNCHANGED | ERROR`
+- subscribeToCustomTopic / unsubscribeToCustomTopic → `ACCEPTED | ERROR`
 
 ## Repo layout
 
@@ -85,17 +97,53 @@ Backend endpoint resolution (defaults):
 ## Example app (`example/`)
 
 Bootstrapped via `npx @react-native-community/cli@18.0.0 init` (so all
-standard RN scaffolding is present). Uses **no-op wrappers** registered via
-Option 3 so the example runs without any Firebase config. Doubles as a
-demo of the wrapper override path.
+standard RN scaffolding is present). Uses the library's **Firebase-backed
+default wrappers** (`DefaultOSAMWrappersFactory` / `DefaultOSAMWrappersProvider`),
+so the full FCM surface works end-to-end (real `getFCMToken`,
+`subscribeToCustomTopic`, analytics, crashlytics, performance).
 
-To exercise `checkVersionControl` / `showRatingDialog` against the real
-backend, the example's `applicationId` (Android) and
-`PRODUCT_BUNDLE_IDENTIFIER` (iOS) are both set to `cat.bcn.parkguell.altech`,
-and the no-op wrappers return `https://dev-osam-modul-comu.dtibcn.cat/`
-as `backendEndpoint` — same as `frontend_rn_app/`. Without these two
-matching the real app/backend pair, the OSAM calls just return
-`status: "ERROR"` because the backend doesn't recognize the identifier.
+The example's `applicationId` (Android) and `PRODUCT_BUNDLE_IDENTIFIER` (iOS)
+are both set to `cat.bcn.parkguell.altech`, and the Firebase config files
+(`google-services.json`, `GoogleService-Info.plist`) are **copied from
+`frontend_rn_app/android/app/src/altech/` and `frontend_rn_app/ios/
+GoogleService-Info.altech.plist`** — they're the altech-flavour configs
+registered against the same bundle ID.
+
+The backend endpoint (`https://dev-osam-modul-comu.dtibcn.cat/`) is stored
+as a **resource**, not hardcoded — mirroring the upstream OSAM convention
+(dedicated `config_keys.{xml,plist}` files, symmetric across platforms):
+- Android: `example/android/app/src/main/res/values/config_keys.xml` →
+  `common_module_endpoint` string.
+- iOS: `example/ios/Example/config_keys.plist` → `common_module_endpoint`
+  key (registered in `Example.xcodeproj/project.pbxproj` with the same
+  4-entry pattern as `GoogleService-Info.plist`, UUID prefix `7617809C/9D…`).
+
+On Android the library's `resolveEndpointFromResources` uses
+`Resources.getIdentifier("common_module_endpoint", "string", packageName)`
+— lookup is by resource name, not filename, so any `values/*.xml` under
+the app works. `config_keys.xml` is preferred purely for symmetry with iOS
+and to keep config keys separate from UI strings.
+
+`MainApplication.kt` and `AppDelegate.swift` call the **no-arg**
+`DefaultOSAMWrappersFactory()` / `DefaultOSAMWrappersProvider()` so the
+endpoint is resolved from those resources at runtime. To redirect the
+example at a different backend, edit the two resource files — no Kotlin
+/ Swift change needed. Without matching app/backend identifiers, OSAM
+calls just return `status: "ERROR"` because the backend doesn't recognize
+the identifier.
+
+**Firebase wiring in the example:**
+- Android: `example/android/build.gradle` declares the google-services /
+  crashlytics / perf-plugin classpath entries; `example/android/app/
+  build.gradle` applies the three plugins and declares the Firebase BOM +
+  analytics/crashlytics/perf/messaging deps (since the library's Firebase
+  deps are `compileOnly`, the consumer app must supply them).
+- iOS: the podspec already pulls Firebase Analytics / Crashlytics /
+  Performance / Messaging. `AppDelegate.swift` calls `FirebaseApp.configure()`
+  before assigning `OSAMConfiguration.wrappersProvider`. The
+  `GoogleService-Info.plist` is registered in
+  `Example.xcodeproj/project.pbxproj` (`PBXBuildFile` + `PBXFileReference`
+  + Example `PBXGroup` children + `PBXResourcesBuildPhase`).
 
 Run from repo root:
 ```sh
@@ -104,14 +152,17 @@ cd example && yarn install                # example + link:.. to the library
 yarn android                              # or: cd ios && bundle install && bundle exec pod install && cd .. && yarn ios
 ```
 
-Test UI in `example/App.tsx` has 4 buttons that call each method and render
-the result. Expected results:
-- `getAppInformation` / `getDeviceInformation` — green, returns JSON.
-- `checkVersionControl('en')` — real backend response from the dev OSAM
-  endpoint (`ACCEPTED` / `DISMISS` / `CANCELLED` / no-op depending on current
+Test UI in `example/App.tsx` has 9 buttons (one per OSAMCommons method).
+Expected results:
+- `appInformation` / `deviceInformation` — green, returns JSON.
+- `versionControl('en')` — real backend response from the dev OSAM
+  endpoint (`ACCEPTED` / `DISMISSED` / `CANCELLED` depending on current
   remote config for `cat.bcn.parkguell.altech`). `ERROR` only if offline or
   the backend is unreachable.
-- `showRatingDialog('en')` — native rating dialog appears.
+- `rating('en')` — native rating dialog appears.
+- `changeLanguageEvent` / `firstTimeOrUpdateEvent` — `SUCCESS` / `UNCHANGED`.
+- `subscribeToCustomTopic` / `unsubscribeToCustomTopic` — `ACCEPTED`.
+- `getFCMToken` — returns a real FCM registration token (not `noop-token`).
 
 ## frontend_rn_app (original Park Güell app)
 
@@ -134,7 +185,9 @@ Completed:
 - [x] Android native module + `DefaultOSAMWrappersFactory` with Firebase
 - [x] iOS native module + `DefaultOSAMWrappersProvider` with Firebase + podspec
 - [x] README with install/usage/override docs
-- [x] `example/` RN 0.79.1 smoke-test app with no-op wrappers
+- [x] `example/` RN 0.79.1 smoke-test app with Firebase-backed default wrappers
+      (uses altech-flavor `google-services.json` / `GoogleService-Info.plist`
+      copied from `frontend_rn_app/`)
 
 Not yet done:
 - [x] **Verify Android compile**: `./gradlew app:compileDebugKotlin` passes

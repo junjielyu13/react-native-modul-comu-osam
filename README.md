@@ -3,12 +3,22 @@
 React Native bridge for the Barcelona City Council common module
 ([`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)).
 
-Exposes the four OSAMCommons operations to JavaScript:
+Exposes all nine `OSAMCommons` operations to JavaScript with the same method
+names as the upstream library:
 
-- `checkVersionControl(languageCode)` — the force-update / recommended-update dialog
-- `showRatingDialog(languageCode)` — the native rating prompt
-- `getDeviceInformation()` — platform name / version / model
-- `getAppInformation()` — app name / versionName / versionCode
+| Method | Returns | Status values |
+|---|---|---|
+| `versionControl(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `CANCELLED` · `ERROR` |
+| `rating(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `ERROR` |
+| `deviceInformation()` | `{ platformName, platformVersion, platformModel }` | — |
+| `appInformation()` | `{ appName, appVersionName, appVersionCode }` | — |
+| `changeLanguageEvent(languageCode)` | `{ status }` | `SUCCESS` · `UNCHANGED` · `ERROR` |
+| `firstTimeOrUpdateEvent(languageCode)` | `{ status }` | `SUCCESS` · `UNCHANGED` · `ERROR` |
+| `subscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
+| `unsubscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
+| `getFCMToken()` | `{ token }` | rejects on failure |
+
+Supported language codes: `ca` · `es` · `en`.
 
 ## Installation
 
@@ -18,11 +28,23 @@ yarn add react-native-modul-comu-osam
 npm install react-native-modul-comu-osam
 ```
 
-### iOS
+The library ships **Firebase-backed default wrappers** (Crashlytics,
+Performance, Analytics, Messaging). Consumer apps must either:
 
-The podspec depends on `OSAMCommon` plus Firebase Analytics / Crashlytics /
-Performance / Messaging for the default wrappers. `OSAMCommon` isn't on
-CocoaPods trunk, so it must be declared explicitly in the consumer `Podfile`:
+1. Provide Firebase and a `config_keys.{xml,plist}` backend endpoint
+   (covered below), **OR**
+2. Swap in a custom wrapper implementation
+   ([Overriding the default wrappers](#overriding-the-default-wrappers)).
+
+---
+
+## iOS setup
+
+### 1. Podfile
+
+`OSAMCommon` isn't on CocoaPods trunk — declare it from the upstream git
+repo, and enforce static linkage (Firebase recommends it, and OSAMCommon
+ships as a static framework):
 
 ```ruby
 target 'YourApp' do
@@ -43,10 +65,130 @@ Then install:
 cd ios && bundle install && bundle exec pod install
 ```
 
-### Android
+The podspec pulls in `FirebaseAnalytics` / `FirebaseCrashlytics` /
+`FirebasePerformance` / `FirebaseMessaging` automatically.
 
-The library declares the `common-android` artifact via JitPack. Add JitPack to
-the project-level `settings.gradle` (or `build.gradle`):
+### 2. Firebase config
+
+Drop `GoogleService-Info.plist` into the app target and make sure it's
+listed under the target's *Build Phases → Copy Bundle Resources*.
+Drag-and-dropping into the Xcode navigator handles this automatically.
+
+### 3. Backend endpoint (`config_keys.plist`)
+
+Create `config_keys.plist` in the app target with a `common_module_endpoint`
+key:
+
+```xml
+<!-- ios/<YourApp>/config_keys.plist -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>common_module_endpoint</key>
+  <string>https://your-osam-backend.example.com</string>
+</dict>
+</plist>
+```
+
+Same as `GoogleService-Info.plist`, ensure it's included in *Copy Bundle
+Resources*.
+
+### 4. `AppDelegate.swift`
+
+```swift
+import FirebaseCore
+import react_native_modul_comu_osam
+
+func application(_ application: UIApplication,
+                 didFinishLaunchingWithOptions launchOptions: …) -> Bool {
+  FirebaseApp.configure()
+  OSAMConfiguration.wrappersProvider = DefaultOSAMWrappersProvider()
+
+  // …start RN…
+}
+```
+
+> Prefer to hard-code the endpoint instead of reading `config_keys.plist`?
+> Pass it to the constructor:
+> `DefaultOSAMWrappersProvider(backendEndpoint: "https://…")`.
+
+### 5. Push Notifications (required for FCM features)
+
+The FCM methods (`getFCMToken`, `subscribeToCustomTopic`,
+`unsubscribeToCustomTopic`) only work after iOS has obtained an **APNS
+token** and handed it to Firebase Messaging. Without this, `getFCMToken`
+rejects with `No APNS token specified before fetching FCM token` and
+topic subscriptions silently fail. This is an iOS-only requirement —
+Android's FCM path doesn't go through APNS.
+
+Skip this section if you only use non-FCM methods
+(`versionControl` / `rating` / `deviceInformation` / `appInformation` /
+`changeLanguageEvent` / `firstTimeOrUpdateEvent`) or if you've swapped
+in a custom `OSAMWrappersProvider` that doesn't use FCM.
+
+**a. Xcode capabilities.** Open your `.xcworkspace`, select the app
+target → *Signing & Capabilities*:
+
+- `+ Capability` → **Push Notifications** (generates `<YourApp>.entitlements`
+  with `aps-environment = development`).
+- `+ Capability` → **Background Modes** → tick **Remote notifications**.
+- Under *Signing*, pick a Team (required for push entitlements to take effect).
+
+**b. Firebase Console.** Upload an APNs Authentication Key (`.p8`) for
+your bundle ID under *Project Settings → Cloud Messaging → Apple app
+configuration*. Without it, APNS tokens are obtained but Firebase can't
+exchange them for FCM tokens.
+
+**c. Extend `AppDelegate.swift`** to request permission, register with
+APNS, and forward the device token to Firebase:
+
+```swift
+import FirebaseCore
+import FirebaseMessaging
+import UserNotifications
+import react_native_modul_comu_osam
+
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: …) -> Bool {
+    FirebaseApp.configure()
+
+    UNUserNotificationCenter.current().delegate = self
+    UNUserNotificationCenter.current().requestAuthorization(
+      options: [.alert, .badge, .sound]
+    ) { _, _ in }
+    application.registerForRemoteNotifications()
+
+    OSAMConfiguration.wrappersProvider = DefaultOSAMWrappersProvider()
+    // …start RN…
+  }
+
+  func application(_ application: UIApplication,
+                   didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    Messaging.messaging().apnsToken = deviceToken
+  }
+
+  func application(_ application: UIApplication,
+                   didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    print("APNS registration failed: \(error)")
+  }
+}
+```
+
+**d. Test target.** iOS Simulators **< 16** cannot obtain APNS tokens —
+use an iOS 16+ Simulator or a physical device. APNS registration is
+asynchronous, so give it a second or two after launch before calling
+`getFCMToken` / `subscribeToCustomTopic`.
+
+---
+
+## Android setup
+
+### 1. JitPack
+
+The library pulls `common-android` (the OSAM artifact) from JitPack. Add
+the repo to `settings.gradle` (or root `build.gradle`):
 
 ```gradle
 allprojects {
@@ -56,44 +198,127 @@ allprojects {
 }
 ```
 
-`OSAMPackage` is picked up by React Native autolinking — no manual package
-registration is needed. The default wrappers read the backend endpoint from
-a string resource:
+`OSAMPackage` is picked up by React Native autolinking — no manual
+package registration needed.
 
-```xml
-<!-- android/app/src/main/res/values/strings.xml -->
-<string name="common_module_endpoint">https://your-osam-backend.example.com</string>
+### 2. Firebase plugins & dependencies
+
+The library's Firebase deps are `compileOnly`, so the consumer app must
+supply them at runtime.
+
+Project-level `build.gradle`:
+
+```gradle
+buildscript {
+  dependencies {
+    classpath("com.google.gms:google-services:4.4.2")
+    classpath("com.google.firebase:firebase-crashlytics-gradle:3.0.3")
+    classpath("com.google.firebase:perf-plugin:1.4.2")
+  }
+}
 ```
 
-On iOS, place the same endpoint in `config_keys.plist` under the key
-`common_module_endpoint`, or supply it explicitly (see below).
+`android/app/build.gradle`:
+
+```gradle
+apply plugin: "com.google.gms.google-services"
+apply plugin: "com.google.firebase.crashlytics"
+apply plugin: "com.google.firebase.firebase-perf"
+
+dependencies {
+  implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+  implementation("com.google.firebase:firebase-analytics")
+  implementation("com.google.firebase:firebase-crashlytics")
+  implementation("com.google.firebase:firebase-perf")
+  implementation("com.google.firebase:firebase-messaging")
+}
+```
+
+### 3. Firebase config
+
+Drop `google-services.json` into `android/app/`.
+
+### 4. Backend endpoint (`config_keys.xml`)
+
+Create `android/app/src/main/res/values/config_keys.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="common_module_endpoint" translatable="false">https://your-osam-backend.example.com</string>
+</resources>
+```
+
+The library looks up the resource by **name** (`common_module_endpoint`),
+not by filename — any `res/values/*.xml` with that `<string>` entry works.
+`config_keys.xml` is the recommended location to stay symmetric with iOS
+and keep config keys separate from UI strings. `translatable="false"`
+tells Android lint this is a config constant.
+
+### 5. `Application.onCreate`
+
+Set the wrappers factory **before** `SoLoader.init`:
+
+```kotlin
+import cat.bcn.osam.reactnative.DefaultOSAMWrappersFactory
+import cat.bcn.osam.reactnative.OSAMConfiguration
+
+override fun onCreate() {
+  super.onCreate()
+  OSAMConfiguration.wrappersFactory = DefaultOSAMWrappersFactory()
+  SoLoader.init(this, OpenSourceMergedSoMapping)
+}
+```
+
+> Prefer to hard-code the endpoint instead of reading `config_keys.xml`?
+> Pass it to the constructor:
+> `DefaultOSAMWrappersFactory(backendEndpoint = "https://…")`.
+
+---
 
 ## Usage
 
 ```ts
 import OSAMModule, { OSAMResultEnum } from 'react-native-modul-comu-osam';
 
-const { status } = await OSAMModule.checkVersionControl('en');
+// Force / recommended update dialog.
+const { status } = await OSAMModule.versionControl('en');
 if (status === OSAMResultEnum.ACCEPTED) { /* user updated */ }
 
-const device = await OSAMModule.getDeviceInformation();
-const app = await OSAMModule.getAppInformation();
+// Periodic rating prompt.
+await OSAMModule.rating('en');
+
+// Device / app metadata.
+const device = await OSAMModule.deviceInformation();
+const app = await OSAMModule.appInformation();
+
+// Language / lifecycle events (call on app launch and on user language change).
+await OSAMModule.firstTimeOrUpdateEvent('en');
+await OSAMModule.changeLanguageEvent('es');
+
+// FCM.
+await OSAMModule.subscribeToCustomTopic('park-guell-news');
+await OSAMModule.unsubscribeToCustomTopic('park-guell-news');
+const { token } = await OSAMModule.getFCMToken();
 ```
+
+---
 
 ## Overriding the default wrappers
 
-The library ships Firebase-backed wrappers by default, but all five wrappers
-(`Crashlytics`, `Performance`, `Analytics`, `PlatformUtil`, `Messaging`) are
-pluggable.
+All five wrappers (`Crashlytics`, `Performance`, `Analytics`, `PlatformUtil`,
+`Messaging`) are pluggable. Use this path when you don't want Firebase,
+or want to route analytics / crash reporting to a different SDK. The
+`OSAMWrappers` / `OSAMWrappersProvider` interfaces you implement are
+described in `android/src/main/java/cat/bcn/osam/reactnative/OSAMWrappers.kt`
+and `ios/OSAMWrappersProvider.swift`.
 
 ### Android
 
-Assign a custom `OSAMWrappersFactory` to `OSAMConfiguration.wrappersFactory`
-**before** `SoLoader.init` runs — typically the first line of
-`Application.onCreate`:
-
 ```kotlin
 import cat.bcn.osam.reactnative.OSAMConfiguration
+import cat.bcn.osam.reactnative.OSAMWrappers
+import cat.bcn.osam.reactnative.OSAMWrappersFactory
 
 class MyWrappersFactory : OSAMWrappersFactory {
   override fun create(context: Context) = OSAMWrappers(
@@ -113,17 +338,12 @@ override fun onCreate() {
 }
 ```
 
-To reuse the Firebase defaults but override the endpoint only:
-
-```kotlin
-OSAMConfiguration.wrappersFactory =
-  DefaultOSAMWrappersFactory(backendEndpoint = "https://…")
-```
+If no custom factory is set, `DefaultOSAMWrappersFactory` (Firebase-backed)
+is used. The default factory resolves Firebase classes only when it's
+actually instantiated, so a consumer that **always** installs a custom
+factory can omit Firebase entirely.
 
 ### iOS
-
-Assign a custom `OSAMWrappersProvider` to `OSAMConfiguration.wrappersProvider`
-**before** the first call — typically in `AppDelegate.application(_:didFinishLaunchingWithOptions:)`:
 
 ```swift
 import react_native_modul_comu_osam
@@ -140,36 +360,63 @@ class MyProvider: NSObject, OSAMWrappersProvider {
 OSAMConfiguration.wrappersProvider = MyProvider()
 ```
 
-> Note: on iOS the Firebase pods are always linked because they're declared in
-> the podspec. Overriding the provider avoids running the Firebase wrappers but
-> does not drop the dependencies. To remove them entirely, fork the podspec.
+> ⚠️ On iOS the Firebase pods are always linked because they're declared
+> unconditionally in the podspec. Overriding the provider stops them from
+> running, but doesn't drop the binary. To remove them entirely, fork the
+> podspec.
+
+---
+
+## Example app
+
+The `example/` directory contains a smoke-test app exercising all nine
+methods against the real dev OSAM backend. See
+[`example/README.md`](./example/README.md) for setup (Firebase configs are
+gitignored — you need to drop in your own matching bundle ID
+`cat.bcn.parkguell.altech`).
+
+---
 
 ## API
 
 ```ts
 interface OSAMModuleInterface {
-  checkVersionControl(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string; description?: string }>;
-  showRatingDialog(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string; description?: string }>;
-  getDeviceInformation():
+  versionControl(languageCode: 'ca' | 'es' | 'en' | string):
+    Promise<{ status: string }>;
+  rating(languageCode: 'ca' | 'es' | 'en' | string):
+    Promise<{ status: string }>;
+  deviceInformation():
     Promise<{ platformName: string; platformVersion: string; platformModel: string }>;
-  getAppInformation():
+  appInformation():
     Promise<{ appName: string; appVersionName: string; appVersionCode: string }>;
+  changeLanguageEvent(languageCode: 'ca' | 'es' | 'en' | string):
+    Promise<{ status: string }>;
+  firstTimeOrUpdateEvent(languageCode: 'ca' | 'es' | 'en' | string):
+    Promise<{ status: string }>;
+  subscribeToCustomTopic(topic: string):
+    Promise<{ status: string }>;
+  unsubscribeToCustomTopic(topic: string):
+    Promise<{ status: string }>;
+  getFCMToken():
+    Promise<{ token: string }>;
 }
 
 enum OSAMResultEnum {
-  CANCELLED = 'CANCELLED',
-  DISMISS = 'DISMISS',
   ACCEPTED = 'ACCEPTED',
+  DISMISSED = 'DISMISSED',
+  CANCELLED = 'CANCELLED',
+  SUCCESS = 'SUCCESS',
+  UNCHANGED = 'UNCHANGED',
   ERROR = 'ERROR',
 }
 ```
 
+---
+
 ## Versioning
 
-This package tracks the upstream `modul_comu_osam` minor version. `0.1.0` is
-based on upstream `3.1.0`.
+This package tracks the upstream `modul_comu_osam` minor version. `0.2.0`
+is based on upstream `3.1.0` and exposes the full OSAMCommons surface.
 
 ## License
 

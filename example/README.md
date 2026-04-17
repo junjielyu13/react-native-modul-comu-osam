@@ -1,25 +1,82 @@
 # Example app — `react-native-modul-comu-osam`
 
-Minimal React Native 0.79 app that smoke-tests the four native methods.
+Minimal React Native 0.79 smoke-test app. Nine buttons, one per `OSAMCommons`
+method, rendering the raw response below each call.
 
-Uses **no-op wrappers** (Option 3 override), so it does **not** require
-Firebase configuration (`google-services.json` / `GoogleService-Info.plist`).
+Uses the library's **Firebase-backed default wrappers**
+(`DefaultOSAMWrappersFactory` / `DefaultOSAMWrappersProvider`), so the full
+FCM surface works end-to-end (real `getFCMToken`, `subscribeToCustomTopic`,
+analytics, crashlytics, performance).
 
-To exercise `checkVersionControl` / `showRatingDialog` against the real
-Park Güell configuration, the example's `applicationId` / bundle ID is
-`cat.bcn.parkguell.altech` and the no-op wrappers return
-`https://dev-osam-modul-comu.dtibcn.cat/` as `backendEndpoint` — the
-same values used by `frontend_rn_app/`. Change those two constants to
-point the example at a different app/backend.
+The example's `applicationId` (Android) and `PRODUCT_BUNDLE_IDENTIFIER` (iOS)
+are both `cat.bcn.parkguell.altech`, and the OSAM backend endpoint is stored
+as a **resource** (not hardcoded) — at
+`android/app/src/main/res/values/config_keys.xml` (`common_module_endpoint`
+string) and `ios/Example/config_keys.plist` (`common_module_endpoint`
+key) — mirroring the upstream OSAM convention. To point the example at a different backend, edit those two files
+instead of `MainApplication.kt` / `AppDelegate.swift`. The default value is
+`https://dev-osam-modul-comu.dtibcn.cat/`, the same dev endpoint used by
+`frontend_rn_app/`.
+
+## Prerequisites
+
+- Node / Yarn (Berry — `yarn-3.6.4` is pinned via `.yarnrc.yml`)
+- Xcode + CocoaPods + Ruby bundler (for iOS)
+- Android Studio / Android SDK + an emulator or device (for Android)
+- **A Firebase project** with apps registered under bundle ID
+  `cat.bcn.parkguell.altech` (both Android and iOS)
+
+## Drop in the Firebase config files
+
+The two files below are **gitignored** because they identify a specific
+Firebase project. Supply your own before building:
+
+| Platform | Destination |
+|---|---|
+| Android | `example/android/app/google-services.json` |
+| iOS | `example/ios/Example/GoogleService-Info.plist` |
+
+### Where to get them
+
+1. Firebase console → Project settings → your Android app
+   (`cat.bcn.parkguell.altech`) → *Download `google-services.json`*.
+2. Firebase console → Project settings → your iOS app
+   (`cat.bcn.parkguell.altech`) → *Download `GoogleService-Info.plist`*.
+
+If you work inside Barcelona City Council / altech, the existing
+`frontend_rn_app/` checkout already has the altech-flavor copies at
+`frontend_rn_app/android/app/src/altech/google-services.json` and
+`frontend_rn_app/ios/GoogleService-Info.altech.plist` — both are registered
+against the same bundle ID, so you can copy them straight into the paths
+above:
+
+```sh
+cp ../frontend_rn_app/android/app/src/altech/google-services.json \
+   android/app/google-services.json
+cp ../frontend_rn_app/ios/GoogleService-Info.altech.plist \
+   ios/Example/GoogleService-Info.plist
+```
+
+### iOS — the plist is already registered in `project.pbxproj`
+
+The Xcode project already references a file at
+`Example/GoogleService-Info.plist` (PBXFileReference + PBXGroup children
++ PBXResourcesBuildPhase entries, UUID prefix `761780…`). Just dropping
+the `.plist` at that path is enough — no Xcode GUI step needed.
+
+If you later rename or move the plist, re-register it: drag-and-drop the
+file into the Example target in the Xcode navigator and Xcode patches
+`project.pbxproj` automatically.
 
 ## Run
 
 From the **repo root**:
 
 ```sh
-yarn install        # installs library devDeps
+yarn install          # library devDeps (builder-bob, etc.)
+yarn prepare          # emits lib/ so example's tsc type resolution works
 cd example
-yarn install        # installs example + links parent library
+yarn install
 ```
 
 ### Android
@@ -29,37 +86,55 @@ yarn android
 ```
 
 First build pulls `com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:3.1.0`
-from JitPack (already configured in `android/build.gradle`).
+from JitPack, plus the Firebase BOM / analytics / crashlytics / perf / messaging
+artifacts.
 
 ### iOS
 
 ```sh
-cd ios && bundle install && bundle exec pod install && cd ..
+cd ios
+bundle install
+bundle exec pod install
+cd ..
 yarn ios
 ```
 
-First `pod install` pulls `OSAMCommon` and the (unused) Firebase pods.
+First `pod install` pulls `OSAMCommon` (from the upstream git repo) and the
+four Firebase pods.
 
 ## What each button does
 
-- `getAppInformation()` — local call, should return the example app's bundle info.
-- `getDeviceInformation()` — local call, should return device platform/version/model.
-- `checkVersionControl('en')` — hits `https://dev-osam-modul-comu.dtibcn.cat/`
-  with `applicationId` `cat.bcn.parkguell.altech`, so a real backend response
-  comes back (`ACCEPTED` / `DISMISS` / `CANCELLED` depending on current
-  remote config for that app). If the device is offline or the backend is
-  unreachable the status is `ERROR`.
-- `showRatingDialog('en')` — triggers the native rating dialog.
+| Button | Expected result |
+|---|---|
+| `appInformation()` | `{ appName, appVersionName, appVersionCode }` — local, always `ACCEPTED`. |
+| `deviceInformation()` | `{ platformName, platformVersion, platformModel }` — local, always `ACCEPTED`. |
+| `versionControl('en')` | Real dev-backend response — `ACCEPTED` / `DISMISSED` / `CANCELLED` depending on the backend's current config for `cat.bcn.parkguell.altech`. `ERROR` only if offline / backend unreachable. |
+| `rating('en')` | Native rating dialog (or `DISMISSED` if shown recently). |
+| `changeLanguageEvent('es')` | `SUCCESS` on first call, `UNCHANGED` if the language already matches. |
+| `firstTimeOrUpdateEvent('en')` | `SUCCESS` the first time, `UNCHANGED` after. |
+| `subscribeToCustomTopic('demo')` | `ACCEPTED` — FCM registers the topic for the device. |
+| `unsubscribeToCustomTopic('demo')` | `ACCEPTED`. |
+| `getFCMToken()` | Real FCM registration token (long base64-ish string). |
 
-## Switching to real Firebase wrappers
+## Troubleshooting
 
-Drop the `NoopWrappersFactory(...)` / `NoopWrappersProvider()` registration and
-let the default `DefaultOSAMWrappersFactory` / `DefaultOSAMWrappersProvider`
-kick in. You'll then need to:
+- **Android build fails at `:app:processDebugGoogleServices`** — the
+  `google-services.json` is missing, or its `package_name` doesn't match
+  `cat.bcn.parkguell.altech`.
+- **iOS crashes at launch inside `FirebaseApp.configure()`** — the
+  `GoogleService-Info.plist` is missing from the built bundle. Check
+  Example target → *Build Phases → Copy Bundle Resources*.
+- **All OSAM calls return `status: 'ERROR'`** — either offline, or the
+  bundle ID of the built app doesn't match what the dev OSAM backend has
+  registered.
+- **`getFCMToken()` returns `"noop-token"`** — `MainApplication.kt` /
+  `AppDelegate.swift` is still registering `NoopWrappersFactory` /
+  `NoopWrappersProvider`. Switch to `DefaultOSAMWrappersFactory` /
+  `DefaultOSAMWrappersProvider`.
 
-- Place `google-services.json` under `android/app/` and apply the google-services
-  / crashlytics / perf Gradle plugins.
-- Place `GoogleService-Info.plist` in `ios/Example/` and call
-  `FirebaseApp.configure()` in `AppDelegate`.
-- Provide a `common_module_endpoint` string resource (Android) and
-  `config_keys.plist` entry (iOS) pointing at your OSAM backend.
+## Swapping Firebase out
+
+If you'd rather not ship Firebase, the library supports plugging in custom
+wrappers — see the **Overriding the default wrappers** section of the repo-root
+`README.md`. The previous version of this example used a `NoopWrappersFactory`
+/ `NoopWrappersProvider` demonstrating that path; `git log` has the history.

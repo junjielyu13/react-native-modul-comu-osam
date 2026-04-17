@@ -33,10 +33,15 @@ function App(): React.JSX.Element {
   };
 
   const actions: Array<{ title: string; onPress: () => void }> = [
-    { title: 'getAppInformation()', onPress: () => run('getAppInformation', () => OSAMModule.getAppInformation()) },
-    { title: 'getDeviceInformation()', onPress: () => run('getDeviceInformation', () => OSAMModule.getDeviceInformation()) },
-    { title: "checkVersionControl('en')", onPress: () => run("checkVersionControl('en')", () => OSAMModule.checkVersionControl('en')) },
-    { title: "showRatingDialog('en')", onPress: () => run("showRatingDialog('en')", () => OSAMModule.showRatingDialog('en')) },
+    { title: 'appInformation()', onPress: () => run('appInformation', () => OSAMModule.appInformation()) },
+    { title: 'deviceInformation()', onPress: () => run('deviceInformation', () => OSAMModule.deviceInformation()) },
+    { title: "versionControl('en')", onPress: () => run("versionControl('en')", () => OSAMModule.versionControl('en')) },
+    { title: "rating('en')", onPress: () => run("rating('en')", () => OSAMModule.rating('en')) },
+    { title: "changeLanguageEvent('es')", onPress: () => run("changeLanguageEvent('es')", () => OSAMModule.changeLanguageEvent('es')) },
+    { title: "firstTimeOrUpdateEvent('en')", onPress: () => run("firstTimeOrUpdateEvent('en')", () => OSAMModule.firstTimeOrUpdateEvent('en')) },
+    { title: "subscribeToCustomTopic('demo')", onPress: () => run("subscribeToCustomTopic('demo')", () => OSAMModule.subscribeToCustomTopic('demo')) },
+    { title: "unsubscribeToCustomTopic('demo')", onPress: () => run("unsubscribeToCustomTopic('demo')", () => OSAMModule.unsubscribeToCustomTopic('demo')) },
+    { title: 'getFCMToken()', onPress: () => run('getFCMToken', () => OSAMModule.getFCMToken()) },
   ];
 
   const bg = { backgroundColor: isDark ? '#111' : '#f5f5f5' };
