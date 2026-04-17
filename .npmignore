@@ -1,0 +1,15 @@
+frontend_rn_app/
+example/
+android/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+node_modules/
+*.log
+.DS_Store
+.idea/
+.vscode/
+__tests__/
+tsconfig.json
+tsconfig.build.json
+babel.config.js

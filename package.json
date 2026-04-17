@@ -1,0 +1,67 @@
+{
+  "name": "react-native-modul-comu-osam",
+  "version": "0.1.0",
+  "description": "React Native bridge for Barcelona City Council's OSAM common module (version control, rating, device/app info)",
+  "main": "lib/commonjs/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/src/index.d.ts",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "!ios/build",
+    "!android/build",
+    "!android/.gradle",
+    "!**/__tests__",
+    "!**/.DS_Store",
+    "react-native-modul-comu-osam.podspec"
+  ],
+  "scripts": {
+    "typescript": "tsc --noEmit",
+    "build": "bob build",
+    "prepare": "bob build",
+    "clean": "del-cli lib"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "barcelona",
+    "osam",
+    "modul-comu-osam",
+    "version-control",
+    "rating"
+  ],
+  "repository": "https://github.com/AjuntamentdeBarcelona/modul_comu_osam",
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "del-cli": "^5.1.0",
+    "react": "19.0.0",
+    "react-native": "0.79.1",
+    "react-native-builder-bob": "^0.36.0",
+    "typescript": "5.0.4"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      "commonjs",
+      "module",
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  }
+}
