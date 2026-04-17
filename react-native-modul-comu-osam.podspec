@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.name         = "react-native-modul-comu-osam"
   s.version      = package["version"]
   s.summary      = package["description"]
-  s.homepage     = package["repository"]
+  s.homepage     = package["homepage"]
   s.license      = package["license"]
   s.authors      = package["author"].to_s.empty? ? { "Barcelona City Council" => "opensource@bcn.cat" } : package["author"]
   s.platforms    = { :ios => "13.0" }
