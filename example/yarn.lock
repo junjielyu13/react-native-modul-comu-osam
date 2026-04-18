@@ -2775,6 +2775,7 @@ __metadata:
     prettier: 2.8.8
     react: 19.0.0
     react-native: 0.79.1
+    react-native-device-info: ^15.0.2
     react-native-modul-comu-osam: "portal:.."
     react-test-renderer: 19.0.0
     typescript: 5.0.4
@@ -7541,6 +7542,15 @@ __metadata:
   version: 19.2.5
   resolution: "react-is@npm:19.2.5"
   checksum: 303f022cdec5e3dee3c0ad731ed54b3db41b8aa8ef9503d37904a7acb404dcc656049b19119d37af4d2526a6921c7ad1675b8b3da76402664af56f8e198fd38b
+  languageName: node
+  linkType: hard
+
+"react-native-device-info@npm:^15.0.2":
+  version: 15.0.2
+  resolution: "react-native-device-info@npm:15.0.2"
+  peerDependencies:
+    react-native: "*"
+  checksum: 932ec7ccfc885aeb39c455b31c55a1b345bd6fcfc8cf22f63fff88f42aefc82bf44e4b05daeaaa1231c4ea8590f25740ce6a0f38bc24a5c89d68702de832e8d6
   languageName: node
   linkType: hard
 

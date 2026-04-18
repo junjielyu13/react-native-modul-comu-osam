@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -8,7 +9,15 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import OSAMModule from 'react-native-modul-comu-osam';
+import libPkg from 'react-native-modul-comu-osam/package.json';
+import appPkg from './package.json';
+
+const BUNDLE_ID = DeviceInfo.getBundleId();
+const LIB_INSTALLED_VERSION = libPkg.version;
+const LIB_DEPENDENCY_SPEC =
+  appPkg.dependencies['react-native-modul-comu-osam'];
 
 type Result = { label: string; value: string; ok: boolean };
 
@@ -52,6 +61,22 @@ function App(): React.JSX.Element {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.title, fg]}>react-native-modul-comu-osam</Text>
         <Text style={[styles.subtitle, fg]}>Example smoke-test app</Text>
+        <View style={[styles.meta, { borderColor: isDark ? '#333' : '#ddd' }]}>
+          <Text style={[styles.metaRow, fg]}>
+            <Text style={styles.metaKey}>
+              {Platform.OS === 'ios' ? 'Bundle ID' : 'Application ID'}:{' '}
+            </Text>
+            {BUNDLE_ID}
+          </Text>
+          <Text style={[styles.metaRow, fg]}>
+            <Text style={styles.metaKey}>Library dependency: </Text>
+            {LIB_DEPENDENCY_SPEC}
+          </Text>
+          <Text style={[styles.metaRow, fg]}>
+            <Text style={styles.metaKey}>Library resolved: </Text>
+            {LIB_INSTALLED_VERSION}
+          </Text>
+        </View>
         <View style={styles.buttons}>
           {actions.map((a) => (
             <TouchableOpacity key={a.title} style={styles.button} onPress={a.onPress}>
@@ -92,6 +117,15 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 60 },
   title: { fontSize: 22, fontWeight: '700' },
   subtitle: { fontSize: 14, opacity: 0.7, marginBottom: 16 },
+  meta: {
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 4,
+  },
+  metaRow: { fontSize: 12, fontFamily: 'Courier' },
+  metaKey: { fontWeight: '700' },
   buttons: { gap: 8, marginBottom: 16 },
   button: {
     backgroundColor: '#2563eb',

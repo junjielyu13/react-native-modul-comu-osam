@@ -2775,7 +2775,8 @@ __metadata:
     prettier: 2.8.8
     react: 19.0.0
     react-native: 0.79.1
-    react-native-modul-comu-osam: ^0.2.0
+    react-native-device-info: ^15.0.2
+    react-native-modul-comu-osam: ^0.2.1
     react-test-renderer: 19.0.0
     typescript: 5.0.4
   languageName: unknown
@@ -7544,13 +7545,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-modul-comu-osam@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "react-native-modul-comu-osam@npm:0.2.0"
+"react-native-device-info@npm:^15.0.2":
+  version: 15.0.2
+  resolution: "react-native-device-info@npm:15.0.2"
+  peerDependencies:
+    react-native: "*"
+  checksum: 932ec7ccfc885aeb39c455b31c55a1b345bd6fcfc8cf22f63fff88f42aefc82bf44e4b05daeaaa1231c4ea8590f25740ce6a0f38bc24a5c89d68702de832e8d6
+  languageName: node
+  linkType: hard
+
+"react-native-modul-comu-osam@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "react-native-modul-comu-osam@npm:0.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: d85fb19d8a0426c0016774e65609792a286230f331a7c99ca8a356d52e316f6a4ef57221214f15ba0bd1b9e9733b6e8e1477a53dd319b3a716c939d53ec73bb1
+  checksum: a3f59c93557a117ea625299f022247dba590ae5b1a4dedeb87f20588f8f9e2e81cfa522a7dfbfcd988e5446db8cd9e2c127f807bcc14579aeaa61eb32d4366f6
   languageName: node
   linkType: hard
 
