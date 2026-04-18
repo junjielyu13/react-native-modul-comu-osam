@@ -457,7 +457,7 @@ enum OSAMResultEnum {
 
 Aquest paquet segueix la versió menor del projecte original
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam).
-La `0.2.0` es basa en la versió `3.1.0` original i exposa tota la
+La `0.2.1` es basa en la versió `3.1.0` original i exposa tota la
 superfície d'OSAMCommons.
 
 ## Llicència

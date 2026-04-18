@@ -444,7 +444,7 @@ enum OSAMResultEnum {
 
 This package tracks the upstream
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
-minor version. `0.2.0` is based on upstream `3.1.0` and exposes the full
+minor version. `0.2.1` is based on upstream `3.1.0` and exposes the full
 OSAMCommons surface.
 
 ## License
