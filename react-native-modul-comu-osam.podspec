@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"].to_s.empty? ? { "Barcelona City Council" => "opensource@bcn.cat" } : package["author"]
   s.platforms    = { :ios => "13.0" }
-  s.source       = { :git => "https://github.com/AjuntamentdeBarcelona/modul_comu_osam.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/junjielyu13/react-native-modul-comu-osam.git", :tag => "v#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
   s.swift_version = "5.0"
