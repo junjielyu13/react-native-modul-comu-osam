@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["example", "lib", "frontend_rn_app"]
+  "exclude": ["example", "example-npm", "lib"]
 }
