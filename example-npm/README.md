@@ -1,7 +1,20 @@
-# Example app — `react-native-modul-comu-osam`
+# Example app — `react-native-modul-comu-osam` (npm)
 
-Minimal React Native 0.79 smoke-test app. Nine buttons, one per `OSAMCommons`
-method, rendering the raw response below each call. Upstream OSAM project:
+Same nine-button smoke-test UI as `../example/`, but consumes the library
+from **npm** (`react-native-modul-comu-osam@^0.2.0` on the public registry)
+instead of the local workspace.
+
+The point of this variant is to exercise the *published* consumer path: it
+verifies that the tarball uploaded to npm is complete (that `.npmignore` /
+`files` / `lib/` build outputs cover everything needed) and that an
+out-of-the-box RN project can install and run the library without any
+local plumbing.
+
+Treat `../example/` as the development example (edit library sources, see
+changes immediately). Treat this one as the **pre-publish / post-publish
+smoke check**.
+
+Upstream OSAM project:
 [AjuntamentdeBarcelona/modul_comu_osam](https://github.com/AjuntamentdeBarcelona/modul_comu_osam).
 
 Uses the library's **Firebase-backed default wrappers**
@@ -40,8 +53,8 @@ Firebase project. Supply your own before building:
 
 | Platform | Destination |
 |---|---|
-| Android | `example/android/app/google-services.json` |
-| iOS | `example/ios/Example/GoogleService-Info.plist` |
+| Android | `example-npm/android/app/google-services.json` |
+| iOS | `example-npm/ios/Example/GoogleService-Info.plist` |
 
 ### Where to get them
 
@@ -63,13 +76,12 @@ file into the Example target in the Xcode navigator and Xcode patches
 
 ## Run
 
-From the **repo root**:
+Unlike `../example/`, this variant does **not** need `yarn install` at the
+repo root — it pulls the library straight from npm. Just:
 
 ```sh
-yarn install          # library devDeps (builder-bob, etc.)
-yarn prepare          # emits lib/ so example's tsc type resolution works
-cd example
-yarn install
+cd example-npm
+yarn install          # installs react-native-modul-comu-osam from npm
 ```
 
 ### Android

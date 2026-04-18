@@ -1,5 +1,5 @@
-frontend_rn_app/
 example/
+example-npm/
 android/build/
 android/.gradle/
 ios/build/

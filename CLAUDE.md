@@ -38,9 +38,11 @@ Response enum values returned in `.status`:
 ├── react-native-modul-comu-osam.podspec
 ├── package.json
 ├── example/                           ← minimal RN 0.79.1 smoke-test app
-└── frontend_rn_app/                   ← original Park Güell app (still uses
-                                        its own inline OSAMModule.{kt,swift};
-                                        not yet migrated to the library)
+│                                        (consumes library via `portal:..`)
+└── example-npm/                       ← same app, consumes library from the
+                                        published npm package — used to
+                                        validate that the tarball uploaded
+                                        to npm is complete
 ```
 
 ## Key design decision: Option 3 wrapper injection
@@ -103,11 +105,10 @@ so the full FCM surface works end-to-end (real `getFCMToken`,
 `subscribeToCustomTopic`, analytics, crashlytics, performance).
 
 The example's `applicationId` (Android) and `PRODUCT_BUNDLE_IDENTIFIER` (iOS)
-are both set to `cat.bcn.parkguell.altech`, and the Firebase config files
-(`google-services.json`, `GoogleService-Info.plist`) are **copied from
-`frontend_rn_app/android/app/src/altech/` and `frontend_rn_app/ios/
-GoogleService-Info.altech.plist`** — they're the altech-flavour configs
-registered against the same bundle ID.
+are both set to `cat.bcn.parkguell.altech`. The two Firebase config files
+(`google-services.json`, `GoogleService-Info.plist`) are **gitignored** and
+must be supplied per-environment — download them from the Firebase console
+for an app registered under the same bundle ID.
 
 The backend endpoint (`https://dev-osam-modul-comu.dtibcn.cat/`) is stored
 as a **resource**, not hardcoded — mirroring the upstream OSAM convention
@@ -164,19 +165,37 @@ Expected results:
 - `subscribeToCustomTopic` / `unsubscribeToCustomTopic` — `ACCEPTED`.
 - `getFCMToken` — returns a real FCM registration token (not `noop-token`).
 
-## frontend_rn_app (original Park Güell app)
+## Example app (`example-npm/`)
 
-Still has its own inline bridging code at:
-- `frontend_rn_app/android/app/src/main/java/cat/bcn/parkguell/OSAMModule.kt`
-- `frontend_rn_app/android/app/src/main/java/cat/bcn/parkguell/OSAMPackage.kt`
-- `frontend_rn_app/ios/frontend_rn_app/OSAMModule.{swift,m}`
-- `frontend_rn_app/app/native/OSAMModule.ts` + `types/`
+Same UI and Firebase wiring as `example/`, but its `package.json` depends on
+`react-native-modul-comu-osam@^0.2.0` from the **public npm registry**
+instead of the local `portal:..` workspace. Because the library resolves
+through normal `node_modules`, this variant:
 
-**Not yet migrated** to the library. The library was extracted *from* this
-app's code. Migration is a likely follow-up task: delete the inline files
-and swap to `import OSAMModule from 'react-native-modul-comu-osam'` +
-`add(OSAMPackage())` (with Firebase defaults, since the app already has
-Firebase fully configured).
+- has **no** `react-native.config.js` (RN autolinking finds the package
+  natively under `node_modules/react-native-modul-comu-osam/`),
+- has a **plain** `metro.config.js` (no `watchFolders` / `extraNodeModules`
+  / `blockList` plumbing),
+- does **not** require `yarn install` + `yarn prepare` at the repo root
+  before building (nothing is symlinked in from the workspace).
+
+Purpose: verify the *published* tarball actually ships everything needed
+(`src/`, `lib/`, `android/`, `ios/`, the `.podspec`) — this is what catches
+missing files in `package.json#files` or a stale `yarn prepare` before a
+release. Edits to library sources are **not** reflected here until a new
+version is published. For day-to-day library development keep using
+`example/`.
+
+Run:
+```sh
+cd example-npm && yarn install
+yarn android                              # or: cd ios && bundle install && bundle exec pod install && cd .. && yarn ios
+```
+
+Firebase config files (`google-services.json` / `GoogleService-Info.plist`)
+follow the same convention as `example/` — supply your own per-environment
+copies. Bundle ID is identical (`cat.bcn.parkguell.altech`), so the same
+Firebase project and the same dev OSAM backend serve both examples.
 
 ## Progress checklist
 
@@ -186,8 +205,8 @@ Completed:
 - [x] iOS native module + `DefaultOSAMWrappersProvider` with Firebase + podspec
 - [x] README with install/usage/override docs
 - [x] `example/` RN 0.79.1 smoke-test app with Firebase-backed default wrappers
-      (uses altech-flavor `google-services.json` / `GoogleService-Info.plist`
-      copied from `frontend_rn_app/`)
+- [x] `example-npm/` — same smoke-test app but consuming the library from the
+      published npm package, for validating the tarball before/after a release
 
 Not yet done:
 - [x] **Verify Android compile**: `./gradlew app:compileDebugKotlin` passes
@@ -197,7 +216,6 @@ Not yet done:
       `yarn ios` end-to-end still needs a simulator launch to confirm install.
       Consumer Podfile must declare `pod 'OSAMCommon', :git => '…', :tag => '3.1.0'`
       since the dep is not on CocoaPods trunk.
-- [ ] Migrate `frontend_rn_app` to consume the library.
 - [ ] Publish to a registry (npm? GitHub Packages?). No registry decision yet.
 - [ ] CI (none configured).
 - [ ] Tests (none — smoke-test is manual via example app).
@@ -225,9 +243,9 @@ Not yet done:
   The RN CLI scaffolder added it when generating `example/`, but it makes
   yarn berry treat the whole repo as a workspace project and rejects `yarn
   install` inside `example/` ("nearest package directory … doesn't seem to
-  be part of the project"). Removed from root. `example/yarn.lock` exists
-  as an empty file so berry treats example as an independent project.
-  `frontend_rn_app/` already has its own `yarn.lock` so it's fine.
+  be part of the project"). Removed from root. `example/yarn.lock` and
+  `example-npm/yarn.lock` exist as empty files so berry treats each example
+  as an independent project.
 - **Don't add `"workspaces": ["example"]` to root `package.json`.** With
   `nodeLinker: node-modules`, yarn berry does NOT create a self-symlink
   (`node_modules/react-native-modul-comu-osam`) for the root workspace,
@@ -257,13 +275,6 @@ Not yet done:
   If it fails to match, `dependencyConfig` returns `null` and the library is
   NOT added as a gradle subproject — compile fails with "Unresolved reference
   'cat'" for every symbol the consumer tries to import.
-
-## Useful reference paths in `frontend_rn_app/`
-
-If you need to look at how things work in the real app:
-- Podfile: `frontend_rn_app/ios/Podfile` (shows `use_frameworks! :linkage => :static`,
-  `$RNFirebaseAsStaticFramework = true`, and `pod 'OSAMCommon', :git => '...', :tag => '3.1.0'`).
-- Android `build.gradle`: `frontend_rn_app/android/app/build.gradle` (JitPack + Firebase deps).
 
 ## Conventions
 

@@ -1,7 +1,20 @@
 # react-native-modul-comu-osam
 
-React Native bridge for the Barcelona City Council common module
-([`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)).
+> 📘 També disponible en [català](./README.ca.md).
+
+React Native bridge for the Barcelona City Council common module — upstream
+project: **[AjuntamentdeBarcelona/modul_comu_osam](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)**
+(Kotlin Multiplatform). This library wraps the upstream `OSAMCommons` API one-to-one
+and exposes it to React Native.
+
+> **Important — bundle ID / applicationId registration.** The OSAM backend
+> only responds to apps whose bundle identifier (iOS) / applicationId
+> (Android) has been pre-registered on the backend side. Before you ship,
+> **confirm the identifier with the OSAM team** so it can be registered —
+> otherwise every `versionControl` / `rating` / lifecycle call comes back
+> with `status: "ERROR"`. The identifier used throughout this repo
+> (`cat.bcn.parkguell.altech`) is an **example only** — it's the one
+> registered for the Park Güell demo app, not a value you should reuse.
 
 Exposes all nine `OSAMCommons` operations to JavaScript with the same method
 names as the upstream library:
@@ -367,13 +380,27 @@ OSAMConfiguration.wrappersProvider = MyProvider()
 
 ---
 
-## Example app
+## Example apps
 
-The `example/` directory contains a smoke-test app exercising all nine
-methods against the real dev OSAM backend. See
-[`example/README.md`](./example/README.md) for setup (Firebase configs are
-gitignored — you need to drop in your own matching bundle ID
-`cat.bcn.parkguell.altech`).
+Two smoke-test apps are included, both exercising all nine methods
+against the real dev OSAM backend:
+
+- [`example/`](./example/README.md) — consumes the library directly from
+  this workspace (`portal:..`). Use this for **library development** —
+  edits to `src/` / `android/` / `ios/` are picked up immediately.
+- [`example-npm/`](./example-npm/README.md) — consumes the library from
+  the **published npm package**. Use this as a **pre/post-publish smoke
+  check** to confirm the tarball on npm actually works.
+
+Both apps hard-code `cat.bcn.parkguell.altech` as their bundle ID / applicationId,
+because that's the identifier the shared dev backend recognizes.
+**This is the example's choice, not a reusable default** — for your own
+app, see the note near the top of this file about registering your
+identifier with the OSAM team.
+
+Firebase configs (`google-services.json` / `GoogleService-Info.plist`)
+are gitignored — drop in your own Firebase project matching the bundle
+ID you actually plan to use.
 
 ---
 
@@ -415,8 +442,10 @@ enum OSAMResultEnum {
 
 ## Versioning
 
-This package tracks the upstream `modul_comu_osam` minor version. `0.2.0`
-is based on upstream `3.1.0` and exposes the full OSAMCommons surface.
+This package tracks the upstream
+[`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
+minor version. `0.2.0` is based on upstream `3.1.0` and exposes the full
+OSAMCommons surface.
 
 ## License
 
