@@ -1,7 +1,7 @@
 {
   "name": "react-native-modul-comu-osam",
   "version": "0.2.0",
-  "description": "React Native bridge for Barcelona City Council's OSAM common module (version control, rating, device/app info)",
+  "description": "React Native bridge for Barcelona City Council's OSAM common module — version control, native rating prompt, device/app info, language-change and first-time/update events, FCM topic subscribe/unsubscribe, and FCM token retrieval. Firebase-backed default wrappers included; swappable at runtime.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
   "types": "lib/typescript/src/index.d.ts",
@@ -17,7 +17,8 @@
     "!android/.gradle",
     "!**/__tests__",
     "!**/.DS_Store",
-    "react-native-modul-comu-osam.podspec"
+    "react-native-modul-comu-osam.podspec",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "typescript": "tsc --noEmit",
@@ -33,7 +34,10 @@
     "osam",
     "modul-comu-osam",
     "version-control",
-    "rating"
+    "rating",
+    "fcm",
+    "firebase-messaging",
+    "push-notifications"
   ],
   "repository": {
     "type": "git",
