@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-04-18
+
+### Added
+
+- Catalan translation of the README (`README.ca.md`).
+- `example-npm/` consumer app that installs the library from the public
+  npm registry, used to validate the published tarball before/after a
+  release.
+
+### Fixed
+
+- `react-native-modul-comu-osam.podspec` source `:git` URL and `:tag`
+  format (`v<version>`) so `pod install` resolves the tag published on
+  GitHub.
+
+### Changed
+
+- Package metadata polish (`package.json` description / keywords) and
+  CHANGELOG formatting.
+
 ## [0.2.0] — 2026-04-17
 
 ### Added
@@ -61,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example app (`example/`) with no-op wrappers so it runs without Firebase
   configuration.
 
+[0.2.1]: https://github.com/junjielyu13/react-native-modul-comu-osam/releases/tag/v0.2.1
 [0.2.0]: https://github.com/junjielyu13/react-native-modul-comu-osam/releases/tag/v0.2.0
 [0.1.1]: https://github.com/junjielyu13/react-native-modul-comu-osam/releases/tag/v0.1.1
 [0.1.0]: https://github.com/junjielyu13/react-native-modul-comu-osam/releases/tag/v0.1.0

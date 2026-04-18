@@ -1,7 +1,7 @@
 # Example app — `react-native-modul-comu-osam` (npm)
 
 Same nine-button smoke-test UI as `../example/`, but consumes the library
-from **npm** (`react-native-modul-comu-osam@^0.2.0` on the public registry)
+from **npm** (`react-native-modul-comu-osam@^0.2.1` on the public registry)
 instead of the local workspace.
 
 The point of this variant is to exercise the *published* consumer path: it
