@@ -1,0 +1,11 @@
+# CODEOWNERS
+#
+# Every PR touching any file in this repo requires review from the
+# accounts listed here. Combined with the "Require review from Code
+# Owners" rule on main/dev, this is what enforces admin approval
+# before a PR can merge.
+#
+# Syntax: <pattern>  <owner1> <owner2> ...
+# Docs:   https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
+
+* @junjielyu13
