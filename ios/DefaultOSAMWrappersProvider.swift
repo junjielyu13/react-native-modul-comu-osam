@@ -17,13 +17,22 @@ import FirebaseMessaging
 /// (key: `common_module_endpoint`) unless an explicit value is passed.
 @objc public class DefaultOSAMWrappersProvider: NSObject, OSAMWrappersProvider {
   private let explicitEndpoint: String?
+  private let debug: Bool
 
   @objc public override convenience init() {
-    self.init(backendEndpoint: nil)
+    self.init(backendEndpoint: nil, debug: false)
   }
 
-  @objc public init(backendEndpoint: String?) {
+  @objc public convenience init(backendEndpoint: String?) {
+    self.init(backendEndpoint: backendEndpoint, debug: false)
+  }
+
+  /// - Parameter debug: when `true`, internal failure paths in the default
+  ///   wrappers send breadcrumbs to Crashlytics via `Crashlytics.log(...)`.
+  ///   Defaults to `false` so production apps stay silent.
+  @objc public init(backendEndpoint: String?, debug: Bool) {
     self.explicitEndpoint = backendEndpoint
+    self.debug = debug
     super.init()
   }
 
@@ -34,6 +43,11 @@ import FirebaseMessaging
       let dict = NSDictionary(contentsOfFile: path),
       let endpoint = dict["common_module_endpoint"] as? String
     else {
+      if debug {
+        Crashlytics.crashlytics().log(
+          "DefaultOSAMWrappersProvider.backendEndpoint: common_module_endpoint missing from config_keys.plist"
+        )
+      }
       fatalError(
         "common_module_endpoint not found in config_keys.plist. " +
         "Either add it, or pass an explicit backendEndpoint to DefaultOSAMWrappersProvider."
@@ -43,10 +57,10 @@ import FirebaseMessaging
   }
 
   public func makeCrashlyticsWrapper() -> CrashlyticsWrapper { FirebaseCrashlyticsWrapper() }
-  public func makePerformanceWrapper() -> PerformanceWrapper { FirebasePerformanceWrapper() }
+  public func makePerformanceWrapper() -> PerformanceWrapper { FirebasePerformanceWrapper(debug: debug) }
   public func makeAnalyticsWrapper() -> AnalyticsWrapper { FirebaseAnalyticsWrapper() }
-  public func makePlatformUtil() -> PlatformUtil { DefaultPlatformUtil() }
-  public func makeMessagingWrapper() -> MessagingWrapper { FirebaseMessagingWrapper() }
+  public func makePlatformUtil() -> PlatformUtil { DefaultPlatformUtil(debug: debug) }
+  public func makeMessagingWrapper() -> MessagingWrapper { FirebaseMessagingWrapper(debug: debug) }
 }
 
 // MARK: - Firebase wrapper implementations
@@ -65,6 +79,12 @@ class FirebaseAnalyticsWrapper: AnalyticsWrapper {
 }
 
 class FirebasePerformanceWrapper: PerformanceWrapper {
+  private let debug: Bool
+
+  init(debug: Bool) {
+    self.debug = debug
+  }
+
   func createMetric(url: String, httpMethod: String) -> PerformanceMetric? {
     let method: HTTPMethod
     switch httpMethod.lowercased() {
@@ -78,7 +98,28 @@ class FirebasePerformanceWrapper: PerformanceWrapper {
     case "connect": method = .connect
     default: method = .get
     }
-    guard let url = URL(string: url), let metric = HTTPMetric(url: url, httpMethod: method) else {
+    guard let urlObj = URL(string: url) else {
+      if debug {
+        let issue = "PerformanceWrapperIOS.createMetric: invalid URL string — url=\(url), httpMethod=\(httpMethod)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: NSError(
+          domain: "OSAMReactNativeDebug",
+          code: 0,
+          userInfo: [NSLocalizedDescriptionKey: issue]
+        ))
+      }
+      return nil
+    }
+    guard let metric = HTTPMetric(url: urlObj, httpMethod: method) else {
+      if debug {
+        let issue = "PerformanceWrapperIOS.createMetric: HTTPMetric init returned nil — url=\(url), httpMethod=\(httpMethod)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: NSError(
+          domain: "OSAMReactNativeDebug",
+          code: 0,
+          userInfo: [NSLocalizedDescriptionKey: issue]
+        ))
+      }
       return nil
     }
     return FirebasePerformanceMetric(metric: metric)
@@ -104,12 +145,29 @@ class FirebasePerformanceMetric: PerformanceMetric {
 }
 
 class DefaultPlatformUtil: PlatformUtil {
+  private let debug: Bool
+
+  init(debug: Bool) {
+    self.debug = debug
+  }
+
   func encodeUrl(url: String) -> String? {
     url.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
   }
 
   func openUrl(url: String) -> Bool {
-    guard let urlObj = URL(string: url) else { return false }
+    guard let urlObj = URL(string: url) else {
+      if debug {
+        let issue = "DefaultPlatformUtil.openUrl: invalid URL string — url=\(url)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: NSError(
+          domain: "OSAMReactNativeDebug",
+          code: 0,
+          userInfo: [NSLocalizedDescriptionKey: issue]
+        ))
+      }
+      return false
+    }
     DispatchQueue.main.async { UIApplication.shared.open(urlObj) }
     return true
   }
@@ -126,13 +184,48 @@ class DefaultPlatformUtil: PlatformUtil {
 }
 
 class FirebaseMessagingWrapper: MessagingWrapper {
+  private let debug: Bool
+
+  init(debug: Bool) {
+    self.debug = debug
+  }
+
   func getToken() async throws -> String {
-    try await Messaging.messaging().token()
+    do {
+      return try await Messaging.messaging().token()
+    } catch {
+      if debug {
+        let issue = "FirebaseMessagingWrapper.getToken: \(error.localizedDescription)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: error as NSError)
+      }
+      throw error
+    }
   }
+
   func subscribeToTopic(topic: String) async throws {
-    try await Messaging.messaging().subscribe(toTopic: topic)
+    do {
+      try await Messaging.messaging().subscribe(toTopic: topic)
+    } catch {
+      if debug {
+        let issue = "FirebaseMessagingWrapper.subscribeToTopic: topic=\(topic), error=\(error.localizedDescription)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: error as NSError)
+      }
+      throw error
+    }
   }
+
   func unsubscribeFromTopic(topic: String) async throws {
-    try await Messaging.messaging().unsubscribe(fromTopic: topic)
+    do {
+      try await Messaging.messaging().unsubscribe(fromTopic: topic)
+    } catch {
+      if debug {
+        let issue = "FirebaseMessagingWrapper.unsubscribeFromTopic: topic=\(topic), error=\(error.localizedDescription)"
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: error as NSError)
+      }
+      throw error
+    }
   }
 }

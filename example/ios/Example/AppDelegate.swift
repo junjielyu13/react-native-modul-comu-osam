@@ -26,7 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     ) { _, _ in }
     application.registerForRemoteNotifications()
 
-    OSAMConfiguration.wrappersProvider = DefaultOSAMWrappersProvider()
+    OSAMConfiguration.wrappersProvider = DefaultOSAMWrappersProvider(
+      backendEndpoint: nil,
+      debug: true
+    )
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)

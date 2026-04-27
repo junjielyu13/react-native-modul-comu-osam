@@ -126,6 +126,19 @@ func application(_ application: UIApplication,
 > Pass it to the constructor:
 > `DefaultOSAMWrappersProvider(backendEndpoint: "https://…")`.
 
+> Want internal failure paths (invalid URL strings, FCM errors,
+> missing `common_module_endpoint`, etc.) reported to Crashlytics?
+> Pass `debug: true`:
+> `DefaultOSAMWrappersProvider(backendEndpoint: nil, debug: true)`.
+> Defaults to `false` so production apps stay silent. Silent-failure
+> sites (`createMetric` returning `nil`, `openUrl` returning `false`)
+> upload as **non-fatals** under the `OSAMReactNativeDebug` error
+> domain. FCM errors (`getFCMToken`, `subscribeToCustomTopic`,
+> `unsubscribeToCustomTopic`) are re-recorded with their original
+> Firebase error type — they still propagate to JS as before.
+> Fatal-path sites (missing endpoint → `fatalError`) only attach a
+> breadcrumb, since the resulting crash itself surfaces them.
+
 ### 5. Push Notifications (required for FCM features)
 
 The FCM methods (`getFCMToken`, `subscribeToCustomTopic`,
@@ -286,6 +299,18 @@ override fun onCreate() {
 > Prefer to hard-code the endpoint instead of reading `config_keys.xml`?
 > Pass it to the constructor:
 > `DefaultOSAMWrappersFactory(backendEndpoint = "https://…")`.
+
+> Want internal failure paths (`startActivity` with no handler, FCM
+> errors, missing `common_module_endpoint`, etc.) reported to
+> Crashlytics? Pass `debug = true`:
+> `DefaultOSAMWrappersFactory(debug = true)`.
+> Defaults to `false` so production apps stay silent. Silent-failure
+> sites (`openUrl` swallowing `ActivityNotFoundException`) and FCM
+> errors (`getFCMToken`, `subscribeToCustomTopic`,
+> `unsubscribeToCustomTopic`) record the caught exception as a
+> **non-fatal** event — FCM errors still propagate to JS as before.
+> Fatal-path sites (missing endpoint → `IllegalStateException`) only
+> attach a breadcrumb, since the resulting crash itself surfaces them.
 
 ---
 
