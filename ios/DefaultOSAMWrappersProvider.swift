@@ -41,17 +41,23 @@ import FirebaseMessaging
     guard
       let path = Bundle.main.path(forResource: "config_keys", ofType: "plist"),
       let dict = NSDictionary(contentsOfFile: path),
-      let endpoint = dict["common_module_endpoint"] as? String
+      let endpoint = dict["common_module_endpoint"] as? String,
+      !endpoint.isEmpty
     else {
-      if debug {
-        Crashlytics.crashlytics().log(
-          "DefaultOSAMWrappersProvider.backendEndpoint: common_module_endpoint missing from config_keys.plist"
-        )
-      }
-      fatalError(
-        "common_module_endpoint not found in config_keys.plist. " +
+      // Returning empty signals "not configured" to OSAMModule, which then
+      // resolves OSAM calls with a graceful ERROR instead of crashing the
+      // app. fatalError here would defeat the whole graceful-init contract.
+      let issue = "DefaultOSAMWrappersProvider.backendEndpoint: common_module_endpoint missing from config_keys.plist. " +
         "Either add it, or pass an explicit backendEndpoint to DefaultOSAMWrappersProvider."
-      )
+      if debug {
+        Crashlytics.crashlytics().log(issue)
+        Crashlytics.crashlytics().record(error: NSError(
+          domain: "OSAMReactNativeDebug",
+          code: 0,
+          userInfo: [NSLocalizedDescriptionKey: issue]
+        ))
+      }
+      return ""
     }
     return endpoint
   }
@@ -85,6 +91,17 @@ class FirebasePerformanceWrapper: PerformanceWrapper {
     self.debug = debug
   }
 
+  private func logFailure(_ reason: String, url: String, httpMethod: String) {
+    guard debug else { return }
+    let issue = "FirebasePerformanceWrapper.createMetric: \(reason) — url=\(redactUrl(url)), httpMethod=\(httpMethod)"
+    Crashlytics.crashlytics().log(issue)
+    Crashlytics.crashlytics().record(error: NSError(
+      domain: "OSAMReactNativeDebug",
+      code: 0,
+      userInfo: [NSLocalizedDescriptionKey: issue]
+    ))
+  }
+
   func createMetric(url: String, httpMethod: String) -> PerformanceMetric? {
     let method: HTTPMethod
     switch httpMethod.lowercased() {
@@ -98,32 +115,58 @@ class FirebasePerformanceWrapper: PerformanceWrapper {
     case "connect": method = .connect
     default: method = .get
     }
+    guard !url.isEmpty else {
+      logFailure("empty URL string", url: url, httpMethod: httpMethod)
+      return nil
+    }
     guard let urlObj = URL(string: url) else {
-      if debug {
-        let issue = "PerformanceWrapperIOS.createMetric: invalid URL string — url=\(url), httpMethod=\(httpMethod)"
-        Crashlytics.crashlytics().log(issue)
-        Crashlytics.crashlytics().record(error: NSError(
-          domain: "OSAMReactNativeDebug",
-          code: 0,
-          userInfo: [NSLocalizedDescriptionKey: issue]
-        ))
-      }
+      logFailure("invalid URL string", url: url, httpMethod: httpMethod)
+      return nil
+    }
+    guard let scheme = urlObj.scheme, scheme == "http" || scheme == "https" else {
+      logFailure("unsupported URL scheme", url: url, httpMethod: httpMethod)
+      return nil
+    }
+    // HTTPMetric crashes if host is empty (e.g. "http:///path").
+    guard let host = urlObj.host, !host.isEmpty else {
+      logFailure("empty URL host", url: url, httpMethod: httpMethod)
       return nil
     }
     guard let metric = HTTPMetric(url: urlObj, httpMethod: method) else {
-      if debug {
-        let issue = "PerformanceWrapperIOS.createMetric: HTTPMetric init returned nil — url=\(url), httpMethod=\(httpMethod)"
-        Crashlytics.crashlytics().log(issue)
-        Crashlytics.crashlytics().record(error: NSError(
-          domain: "OSAMReactNativeDebug",
-          code: 0,
-          userInfo: [NSLocalizedDescriptionKey: issue]
-        ))
-      }
+      logFailure("HTTPMetric init returned nil", url: url, httpMethod: httpMethod)
       return nil
     }
     return FirebasePerformanceMetric(metric: metric)
   }
+}
+
+// Truncates `s` to fit within `maxBytes` UTF-8 bytes, never splitting a
+// Unicode scalar (so the result is always valid UTF-8 / valid Swift String).
+internal func truncateUtf8(_ s: String, maxBytes: Int) -> String {
+  if s.isEmpty || maxBytes <= 0 { return "" }
+  var bytes = 0
+  var result = ""
+  for scalar in s.unicodeScalars {
+    let scalarBytes = scalar.utf8.count
+    if bytes + scalarBytes > maxBytes { break }
+    result.unicodeScalars.append(scalar)
+    bytes += scalarBytes
+  }
+  return result
+}
+
+// URL query/fragment may carry tokens or PII. Strip down to scheme://host/path
+// before logging anywhere off-device (Crashlytics breadcrumbs).
+internal func redactUrl(_ url: String) -> String {
+  if url.isEmpty { return "<empty>" }
+  guard
+    let u = URL(string: url),
+    let scheme = u.scheme, !scheme.isEmpty,
+    let host = u.host, !host.isEmpty
+  else {
+    return "<malformed>"
+  }
+  return "\(scheme)://\(host)\(u.path)"
 }
 
 class FirebasePerformanceMetric: PerformanceMetric {
@@ -140,7 +183,30 @@ class FirebasePerformanceMetric: PerformanceMetric {
   func setResponseContentType(contentType: String) { metric?.responseContentType = contentType }
   func setHttpResponseCode(responseCode: Int32) { metric?.responseCode = Int(responseCode) }
   func setResponsePayloadSize(bytes: Int64) { metric?.responsePayloadSize = Int(bytes) }
-  func putAttribute(attribute: String, value: String) { metric?.setValue(value, forAttribute: attribute) }
+  func putAttribute(attribute: String, value: String) {
+    guard !attribute.isEmpty else { return }
+    // Firebase only accepts ASCII [A-Za-z0-9_], must start with a letter,
+    // key ≤ 40 chars, value ≤ 100 chars. Out-of-spec attrs are silently dropped
+    // by Firebase, so sanitize here to keep them observable.
+    // CharacterSet.alphanumerics matches all Unicode letters/digits, which
+    // is too permissive — use an explicit ASCII set instead.
+    let asciiAllowed = CharacterSet(charactersIn:
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_")
+    let asciiLetters = CharacterSet(charactersIn:
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+    var sanitized = attribute
+      .components(separatedBy: asciiAllowed.inverted)
+      .joined(separator: "_")
+    if let first = sanitized.unicodeScalars.first, !asciiLetters.contains(first) {
+      sanitized = "a_" + sanitized
+    }
+    // Key is ASCII after sanitize → byte count == char count, prefix(40) safe.
+    // Value can hold any Unicode; Firebase enforces 100 server-side per UTF-8
+    // byte. Truncate by UTF-8 bytes, never splitting a Unicode scalar.
+    let truncatedKey = String(sanitized.prefix(40))
+    let truncatedValue = truncateUtf8(value, maxBytes: 100)
+    metric?.setValue(truncatedValue, forAttribute: truncatedKey)
+  }
   func stop() { metric?.stop() }
 }
 
@@ -158,7 +224,7 @@ class DefaultPlatformUtil: PlatformUtil {
   func openUrl(url: String) -> Bool {
     guard let urlObj = URL(string: url) else {
       if debug {
-        let issue = "DefaultPlatformUtil.openUrl: invalid URL string — url=\(url)"
+        let issue = "DefaultPlatformUtil.openUrl: invalid URL string — url=\(redactUrl(url))"
         Crashlytics.crashlytics().log(issue)
         Crashlytics.crashlytics().record(error: NSError(
           domain: "OSAMReactNativeDebug",
