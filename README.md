@@ -131,13 +131,18 @@ func application(_ application: UIApplication,
 > Pass `debug: true`:
 > `DefaultOSAMWrappersProvider(backendEndpoint: nil, debug: true)`.
 > Defaults to `false` so production apps stay silent. Silent-failure
-> sites (`createMetric` returning `nil`, `openUrl` returning `false`)
-> upload as **non-fatals** under the `OSAMReactNativeDebug` error
-> domain. FCM errors (`getFCMToken`, `subscribeToCustomTopic`,
-> `unsubscribeToCustomTopic`) are re-recorded with their original
-> Firebase error type — they still propagate to JS as before.
-> Fatal-path sites (missing endpoint → `fatalError`) only attach a
-> breadcrumb, since the resulting crash itself surfaces them.
+> sites (`createMetric` returning `nil`, `openUrl` returning `false`,
+> missing `common_module_endpoint`) upload as **non-fatals** under the
+> `OSAMReactNativeDebug` error domain. FCM errors (`getFCMToken`,
+> `subscribeToCustomTopic`, `unsubscribeToCustomTopic`) are re-recorded
+> with their original Firebase error type — they still propagate to
+> JS as before.
+>
+> URLs in breadcrumbs are redacted to `scheme://host/path` (query and
+> fragment stripped) so any tokens or PII in query strings don't leave
+> the device. **Custom topic names**, however, are logged in plain text
+> to Crashlytics on FCM failures — keep PII out of topic names if you
+> enable `debug` in production.
 
 ### 5. Push Notifications (required for FCM features)
 
@@ -305,12 +310,18 @@ override fun onCreate() {
 > Crashlytics? Pass `debug = true`:
 > `DefaultOSAMWrappersFactory(debug = true)`.
 > Defaults to `false` so production apps stay silent. Silent-failure
-> sites (`openUrl` swallowing `ActivityNotFoundException`) and FCM
+> sites (`openUrl` swallowing exceptions from `startActivity`) and FCM
 > errors (`getFCMToken`, `subscribeToCustomTopic`,
 > `unsubscribeToCustomTopic`) record the caught exception as a
 > **non-fatal** event — FCM errors still propagate to JS as before.
 > Fatal-path sites (missing endpoint → `IllegalStateException`) only
 > attach a breadcrumb, since the resulting crash itself surfaces them.
+>
+> URLs in breadcrumbs are redacted to `scheme://host/path` (query and
+> fragment stripped) so any tokens or PII in query strings don't leave
+> the device. **Custom topic names**, however, are logged in plain text
+> to Crashlytics on FCM failures — keep PII out of topic names if you
+> enable `debug` in production.
 
 ---
 

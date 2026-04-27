@@ -26,13 +26,17 @@ class OSAMModule(
 
   // Builds OSAMCommons lazily once an Activity is available, caches it,
   // and refreshes the activity reference on subsequent calls so the
-  // dialog-based methods always present from the visible Activity.
-  private fun resolveOsamCommons(): OSAMCommons? {
+  // dialog-based methods always present from the visible Activity. If
+  // `currentActivity` is null (e.g. app backgrounded) we return null even
+  // when the cache is populated, to avoid presenting on a stale/destroyed
+  // Activity.
+  private fun resolveOsamCommons(): OSAMCommons {
+    val activity = currentActivity
+      ?: throw IllegalStateException("no current Activity")
     osamCommonsCache?.let {
-      currentActivity?.let { act -> it.setActivity(act) }
+      it.setActivity(activity)
       return it
     }
-    val activity = currentActivity ?: return null
     val wrappers = wrappersFactory.create(reactApplicationContext)
     return OSAMCommons(
       activity = activity,
@@ -51,9 +55,10 @@ class OSAMModule(
   // so callers don't have to catch promise rejections separately from real
   // ERROR results.
   private inline fun withCommonsStatus(promise: Promise, block: (OSAMCommons) -> Unit) {
-    val commons = resolveOsamCommons()
-    if (commons == null) {
-      promise.resolve(errorStatusMap("OSAMCommons could not be initialized: no current Activity"))
+    val commons = try {
+      resolveOsamCommons()
+    } catch (e: Throwable) {
+      promise.resolve(errorStatusMap("OSAMCommons could not be initialized: ${e.message ?: e.javaClass.simpleName}"))
       return
     }
     try {
@@ -71,9 +76,10 @@ class OSAMModule(
     errorCode: String,
     block: (OSAMCommons) -> Unit,
   ) {
-    val commons = resolveOsamCommons()
-    if (commons == null) {
-      promise.reject(errorCode, "OSAMCommons could not be initialized: no current Activity")
+    val commons = try {
+      resolveOsamCommons()
+    } catch (e: Throwable) {
+      promise.reject(errorCode, "OSAMCommons could not be initialized: ${e.message ?: e.javaClass.simpleName}", e)
       return
     }
     try {
