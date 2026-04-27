@@ -20,11 +20,21 @@ class OSAMModule(
     const val NAME = "OSAMModule"
   }
 
-  private val osamCommons: OSAMCommons by lazy {
-    val activity = currentActivity
-      ?: error("OSAMCommons requires an Activity. Call OSAM methods after the app is resumed.")
+  private var osamCommonsCache: OSAMCommons? = null
+
+  override fun getName(): String = NAME
+
+  // Builds OSAMCommons lazily once an Activity is available, caches it,
+  // and refreshes the activity reference on subsequent calls so the
+  // dialog-based methods always present from the visible Activity.
+  private fun resolveOsamCommons(): OSAMCommons? {
+    osamCommonsCache?.let {
+      currentActivity?.let { act -> it.setActivity(act) }
+      return it
+    }
+    val activity = currentActivity ?: return null
     val wrappers = wrappersFactory.create(reactApplicationContext)
-    OSAMCommons(
+    return OSAMCommons(
       activity = activity,
       context = reactApplicationContext,
       backendEndpoint = wrappers.backendEndpoint,
@@ -33,44 +43,74 @@ class OSAMModule(
       analyticsWrapper = wrappers.analytics,
       platformUtil = wrappers.platformUtil,
       messagingWrapper = wrappers.messaging,
-    )
+    ).also { osamCommonsCache = it }
   }
 
-  override fun getName(): String = NAME
-
-  private fun refreshActivity() {
-    currentActivity?.let { osamCommons.setActivity(it) }
+  // For methods that contract on OSAMStatusResponse — init failure or any
+  // synchronous exception resolves with `{ status: "ERROR", description: ... }`
+  // so callers don't have to catch promise rejections separately from real
+  // ERROR results.
+  private inline fun withCommonsStatus(promise: Promise, block: (OSAMCommons) -> Unit) {
+    val commons = resolveOsamCommons()
+    if (commons == null) {
+      promise.resolve(errorStatusMap("OSAMCommons could not be initialized: no current Activity"))
+      return
+    }
+    try {
+      block(commons)
+    } catch (e: Throwable) {
+      promise.resolve(errorStatusMap(e.message ?: e.javaClass.simpleName))
+    }
   }
+
+  // For methods that resolve with a data object (deviceInformation /
+  // appInformation / getFCMToken) — init failure rejects, matching the
+  // existing failure semantics of those methods.
+  private inline fun withCommons(
+    promise: Promise,
+    errorCode: String,
+    block: (OSAMCommons) -> Unit,
+  ) {
+    val commons = resolveOsamCommons()
+    if (commons == null) {
+      promise.reject(errorCode, "OSAMCommons could not be initialized: no current Activity")
+      return
+    }
+    try {
+      block(commons)
+    } catch (e: Throwable) {
+      promise.reject(errorCode, e.message, e)
+    }
+  }
+
+  private fun errorStatusMap(description: String): WritableNativeMap =
+    WritableNativeMap().apply {
+      putString("status", "ERROR")
+      putString("description", description)
+    }
 
   @ReactMethod
   fun versionControl(languageCode: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.versionControl(language = parseLanguage(languageCode)) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.versionControl(language = parseLanguage(languageCode)) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("VERSION_CONTROL_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun rating(languageCode: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.rating(language = parseLanguage(languageCode)) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.rating(language = parseLanguage(languageCode)) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("RATING_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun deviceInformation(promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.deviceInformation { response, info ->
+    withCommons(promise, "DEVICE_INFO_ERROR") { commons ->
+      commons.deviceInformation { response, info ->
         if (response.name == "ACCEPTED" && info != null) {
           promise.resolve(WritableNativeMap().apply {
             putString("platformName", info.platformName)
@@ -81,16 +121,13 @@ class OSAMModule(
           promise.reject("DEVICE_INFO_ERROR", "Failed to get device information")
         }
       }
-    } catch (e: Exception) {
-      promise.reject("DEVICE_INFO_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun appInformation(promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.appInformation { response, info ->
+    withCommons(promise, "APP_INFO_ERROR") { commons ->
+      commons.appInformation { response, info ->
         if (response.name == "ACCEPTED" && info != null) {
           promise.resolve(WritableNativeMap().apply {
             putString("appName", info.appName)
@@ -101,64 +138,49 @@ class OSAMModule(
           promise.reject("APP_INFO_ERROR", "Failed to get app information")
         }
       }
-    } catch (e: Exception) {
-      promise.reject("APP_INFO_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun changeLanguageEvent(languageCode: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.changeLanguageEvent(language = parseLanguage(languageCode)) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.changeLanguageEvent(language = parseLanguage(languageCode)) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("CHANGE_LANGUAGE_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun firstTimeOrUpdateEvent(languageCode: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.firstTimeOrUpdateEvent(language = parseLanguage(languageCode)) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.firstTimeOrUpdateEvent(language = parseLanguage(languageCode)) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("FIRST_TIME_OR_UPDATE_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun subscribeToCustomTopic(topic: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.subscribeToCustomTopic(topic) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.subscribeToCustomTopic(topic) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("SUBSCRIBE_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun unsubscribeToCustomTopic(topic: String, promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.unsubscribeToCustomTopic(topic) { response ->
+    withCommonsStatus(promise) { commons ->
+      commons.unsubscribeToCustomTopic(topic) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
-    } catch (e: Exception) {
-      promise.reject("UNSUBSCRIBE_ERROR", e.message, e)
     }
   }
 
   @ReactMethod
   fun getFCMToken(promise: Promise) {
-    try {
-      refreshActivity()
-      osamCommons.getFCMToken { response ->
+    withCommons(promise, "FCM_TOKEN_ERROR") { commons ->
+      commons.getFCMToken { response ->
         when (response) {
           is TokenResponse.Success ->
             promise.resolve(WritableNativeMap().apply { putString("token", response.token) })
@@ -166,8 +188,6 @@ class OSAMModule(
             promise.reject("FCM_TOKEN_ERROR", response.error.message ?: "Failed to get FCM token", response.error)
         }
       }
-    } catch (e: Exception) {
-      promise.reject("FCM_TOKEN_ERROR", e.message, e)
     }
   }
 

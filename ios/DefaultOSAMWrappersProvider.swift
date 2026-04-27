@@ -85,6 +85,17 @@ class FirebasePerformanceWrapper: PerformanceWrapper {
     self.debug = debug
   }
 
+  private func logFailure(_ reason: String, url: String, httpMethod: String) {
+    guard debug else { return }
+    let issue = "FirebasePerformanceWrapper.createMetric: \(reason) — url=\(url), httpMethod=\(httpMethod)"
+    Crashlytics.crashlytics().log(issue)
+    Crashlytics.crashlytics().record(error: NSError(
+      domain: "OSAMReactNativeDebug",
+      code: 0,
+      userInfo: [NSLocalizedDescriptionKey: issue]
+    ))
+  }
+
   func createMetric(url: String, httpMethod: String) -> PerformanceMetric? {
     let method: HTTPMethod
     switch httpMethod.lowercased() {
@@ -98,28 +109,27 @@ class FirebasePerformanceWrapper: PerformanceWrapper {
     case "connect": method = .connect
     default: method = .get
     }
-    guard let urlObj = URL(string: url) else {
-      if debug {
-        let issue = "PerformanceWrapperIOS.createMetric: invalid URL string — url=\(url), httpMethod=\(httpMethod)"
-        Crashlytics.crashlytics().log(issue)
-        Crashlytics.crashlytics().record(error: NSError(
-          domain: "OSAMReactNativeDebug",
-          code: 0,
-          userInfo: [NSLocalizedDescriptionKey: issue]
-        ))
-      }
+    guard !url.isEmpty else {
+      logFailure("empty URL string", url: url, httpMethod: httpMethod)
+      return nil
+    }
+    let parsedURL = URL(string: url)
+      ?? url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed).flatMap(URL.init)
+    guard let urlObj = parsedURL else {
+      logFailure("invalid URL string", url: url, httpMethod: httpMethod)
+      return nil
+    }
+    guard let scheme = urlObj.scheme, scheme == "http" || scheme == "https" else {
+      logFailure("unsupported URL scheme", url: url, httpMethod: httpMethod)
+      return nil
+    }
+    // HTTPMetric crashes if host is empty (e.g. "http:///path").
+    guard let host = urlObj.host, !host.isEmpty else {
+      logFailure("empty URL host", url: url, httpMethod: httpMethod)
       return nil
     }
     guard let metric = HTTPMetric(url: urlObj, httpMethod: method) else {
-      if debug {
-        let issue = "PerformanceWrapperIOS.createMetric: HTTPMetric init returned nil — url=\(url), httpMethod=\(httpMethod)"
-        Crashlytics.crashlytics().log(issue)
-        Crashlytics.crashlytics().record(error: NSError(
-          domain: "OSAMReactNativeDebug",
-          code: 0,
-          userInfo: [NSLocalizedDescriptionKey: issue]
-        ))
-      }
+      logFailure("HTTPMetric init returned nil", url: url, httpMethod: httpMethod)
       return nil
     }
     return FirebasePerformanceMetric(metric: metric)
@@ -140,7 +150,23 @@ class FirebasePerformanceMetric: PerformanceMetric {
   func setResponseContentType(contentType: String) { metric?.responseContentType = contentType }
   func setHttpResponseCode(responseCode: Int32) { metric?.responseCode = Int(responseCode) }
   func setResponsePayloadSize(bytes: Int64) { metric?.responsePayloadSize = Int(bytes) }
-  func putAttribute(attribute: String, value: String) { metric?.setValue(value, forAttribute: attribute) }
+  func putAttribute(attribute: String, value: String) {
+    guard !attribute.isEmpty else { return }
+    // Firebase only accepts alphanumerics + `_`, must start with a letter,
+    // key ≤ 40 chars, value ≤ 100 chars. Out-of-spec attrs are silently dropped
+    // by Firebase, so sanitize here to keep them observable.
+    let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+    var sanitized = attribute
+      .components(separatedBy: allowed.inverted)
+      .joined(separator: "_")
+    guard !sanitized.isEmpty else { return }
+    if let first = sanitized.unicodeScalars.first, !CharacterSet.letters.contains(first) {
+      sanitized = "a_" + sanitized
+    }
+    let truncatedKey = String(sanitized.prefix(40))
+    let truncatedValue = String(value.prefix(100))
+    metric?.setValue(truncatedValue, forAttribute: truncatedKey)
+  }
   func stop() { metric?.stop() }
 }
 

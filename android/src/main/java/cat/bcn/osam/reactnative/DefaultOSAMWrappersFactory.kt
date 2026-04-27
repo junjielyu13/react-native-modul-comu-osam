@@ -40,7 +40,7 @@ class DefaultOSAMWrappersFactory(
 
   override fun create(context: Context): OSAMWrappers = OSAMWrappers(
     crashlytics = FirebaseCrashlyticsWrapper(),
-    performance = FirebasePerformanceWrapper(),
+    performance = FirebasePerformanceWrapper(debug),
     analytics = FirebaseAnalyticsWrapper(context),
     platformUtil = DefaultPlatformUtil(context, debug),
     messaging = FirebaseMessagingWrapper(debug),
@@ -87,9 +87,40 @@ internal class FirebaseAnalyticsWrapper(context: Context) : AnalyticsWrapper {
   }
 }
 
-internal class FirebasePerformanceWrapper : PerformanceWrapper {
-  override fun createMetric(url: String, httpMethod: String): PerformanceMetric =
-    FirebasePerformanceMetric(FirebasePerformance.getInstance().newHttpMetric(url, httpMethod))
+internal class FirebasePerformanceWrapper(private val debug: Boolean) : PerformanceWrapper {
+  override fun createMetric(url: String, httpMethod: String): PerformanceMetric {
+    if (url.isEmpty()) {
+      logFailure("empty URL string", url, httpMethod)
+      return FirebasePerformanceMetric(null)
+    }
+    val uri = Uri.parse(url)
+    val scheme = uri.scheme
+    if (scheme != "http" && scheme != "https") {
+      logFailure("unsupported URL scheme", url, httpMethod)
+      return FirebasePerformanceMetric(null)
+    }
+    val host = uri.host
+    if (host.isNullOrEmpty()) {
+      logFailure("empty URL host", url, httpMethod)
+      return FirebasePerformanceMetric(null)
+    }
+    val metric = runCatching {
+      FirebasePerformance.getInstance().newHttpMetric(url, httpMethod)
+    }.getOrNull()
+    if (metric == null) {
+      logFailure("HttpMetric init returned null", url, httpMethod)
+      return FirebasePerformanceMetric(null)
+    }
+    return FirebasePerformanceMetric(metric)
+  }
+
+  private fun logFailure(reason: String, url: String, httpMethod: String) {
+    if (!debug) return
+    val issue = "FirebasePerformanceWrapper.createMetric: $reason — url=$url, httpMethod=$httpMethod"
+    val crashlytics = FirebaseCrashlytics.getInstance()
+    crashlytics.log(issue)
+    crashlytics.recordException(RuntimeException(issue))
+  }
 }
 
 internal class FirebasePerformanceMetric(private val metric: HttpMetric?) : PerformanceMetric {
@@ -100,7 +131,19 @@ internal class FirebasePerformanceMetric(private val metric: HttpMetric?) : Perf
   override fun setResponseContentType(contentType: String) { metric?.setResponseContentType(contentType) }
   override fun setHttpResponseCode(responseCode: Int) { metric?.setHttpResponseCode(responseCode) }
   override fun setResponsePayloadSize(bytes: Long) { metric?.setResponsePayloadSize(bytes) }
-  override fun putAttribute(attribute: String, value: String) { metric?.putAttribute(attribute, value) }
+  override fun putAttribute(attribute: String, value: String) {
+    if (attribute.isEmpty()) return
+    // Firebase only accepts alphanumerics + `_`, must start with a letter,
+    // key ≤ 40 chars, value ≤ 100 chars. Out-of-spec attrs are silently dropped
+    // by Firebase, so sanitize here to keep them observable.
+    var sanitized = attribute.replace(Regex("[^A-Za-z0-9_]"), "_")
+    if (sanitized.isEmpty()) return
+    val first = sanitized.first()
+    if (first !in 'a'..'z' && first !in 'A'..'Z') {
+      sanitized = "a_$sanitized"
+    }
+    metric?.putAttribute(sanitized.take(40), value.take(100))
+  }
   override fun stop() { metric?.stop() }
 }
 
