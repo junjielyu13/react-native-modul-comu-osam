@@ -1,5 +1,6 @@
 package cat.bcn.osam.reactnative
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -27,17 +28,22 @@ import kotlinx.coroutines.tasks.await
  *
  * [backendEndpoint] is read from a string resource named `common_module_endpoint`
  * unless explicitly provided.
+ *
+ * When [debug] is `true`, internal failure paths in the default wrappers
+ * send breadcrumbs to Crashlytics via `FirebaseCrashlytics.log(...)`.
+ * Defaults to `false` so production apps stay silent.
  */
 class DefaultOSAMWrappersFactory(
   private val backendEndpoint: String? = null,
+  private val debug: Boolean = false,
 ) : OSAMWrappersFactory {
 
   override fun create(context: Context): OSAMWrappers = OSAMWrappers(
     crashlytics = FirebaseCrashlyticsWrapper(),
     performance = FirebasePerformanceWrapper(),
     analytics = FirebaseAnalyticsWrapper(context),
-    platformUtil = DefaultPlatformUtil(context),
-    messaging = FirebaseMessagingWrapper(),
+    platformUtil = DefaultPlatformUtil(context, debug),
+    messaging = FirebaseMessagingWrapper(debug),
     backendEndpoint = backendEndpoint ?: resolveEndpointFromResources(context),
   )
 
@@ -48,6 +54,11 @@ class DefaultOSAMWrappersFactory(
       context.packageName,
     )
     if (resId == 0) {
+      if (debug) {
+        FirebaseCrashlytics.getInstance().log(
+          "DefaultOSAMWrappersFactory.resolveEndpointFromResources: common_module_endpoint string resource missing"
+        )
+      }
       error(
         "common_module_endpoint string resource not found. " +
           "Either define <string name=\"common_module_endpoint\">…</string> in the app, " +
@@ -93,23 +104,73 @@ internal class FirebasePerformanceMetric(private val metric: HttpMetric?) : Perf
   override fun stop() { metric?.stop() }
 }
 
-internal class DefaultPlatformUtil(private val context: Context) : PlatformUtil {
+internal class DefaultPlatformUtil(
+  private val context: Context,
+  private val debug: Boolean,
+) : PlatformUtil {
   override fun encodeUrl(url: String): String = url
 
   override fun openUrl(url: String): Boolean {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK
     }
-    ContextCompat.startActivity(context, intent, null)
-    return true
+    return try {
+      ContextCompat.startActivity(context, intent, null)
+      true
+    } catch (e: ActivityNotFoundException) {
+      if (debug) {
+        val crashlytics = FirebaseCrashlytics.getInstance()
+        crashlytics.log(
+          "DefaultPlatformUtil.openUrl: no activity to handle URL — url=$url, error=${e.message}"
+        )
+        crashlytics.recordException(e)
+      }
+      false
+    }
   }
 
   override fun getDeviceModelIdentifier(): String = android.os.Build.MODEL ?: ""
 }
 
-internal class FirebaseMessagingWrapper : MessagingWrapper {
+internal class FirebaseMessagingWrapper(private val debug: Boolean) : MessagingWrapper {
   private val messaging = FirebaseMessaging.getInstance()
-  override suspend fun subscribeToTopic(topic: String) { messaging.subscribeToTopic(topic) }
-  override suspend fun unsubscribeFromTopic(topic: String) { messaging.unsubscribeFromTopic(topic) }
-  override suspend fun getToken(): String = messaging.token.await()
+
+  override suspend fun subscribeToTopic(topic: String) {
+    try {
+      messaging.subscribeToTopic(topic).await()
+    } catch (e: Exception) {
+      if (debug) {
+        val crashlytics = FirebaseCrashlytics.getInstance()
+        crashlytics.log("FirebaseMessagingWrapper.subscribeToTopic: topic=$topic, error=${e.message}")
+        crashlytics.recordException(e)
+      }
+      throw e
+    }
+  }
+
+  override suspend fun unsubscribeFromTopic(topic: String) {
+    try {
+      messaging.unsubscribeFromTopic(topic).await()
+    } catch (e: Exception) {
+      if (debug) {
+        val crashlytics = FirebaseCrashlytics.getInstance()
+        crashlytics.log("FirebaseMessagingWrapper.unsubscribeFromTopic: topic=$topic, error=${e.message}")
+        crashlytics.recordException(e)
+      }
+      throw e
+    }
+  }
+
+  override suspend fun getToken(): String {
+    return try {
+      messaging.token.await()
+    } catch (e: Exception) {
+      if (debug) {
+        val crashlytics = FirebaseCrashlytics.getInstance()
+        crashlytics.log("FirebaseMessagingWrapper.getToken: ${e.message}")
+        crashlytics.recordException(e)
+      }
+      throw e
+    }
+  }
 }
