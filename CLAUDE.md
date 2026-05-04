@@ -218,7 +218,14 @@ Not yet done:
       since the dep is not on CocoaPods trunk.
 - [ ] Publish to a registry (npm? GitHub Packages?). No registry decision yet.
 - [ ] CI (none configured).
-- [ ] Tests (none — smoke-test is manual via example app).
+- [x] **Unit tests for the JS bridge** (`__tests__/index.test.ts`,
+      `__tests__/linking-error.test.ts`, `yarn test`). Cover argument
+      passthrough, the `versionControl` / `rating` default-arg substitution,
+      response passthrough, the `OSAMResultEnum` surface, and the
+      `LINKING_ERROR` proxy. Native (Kotlin / Swift) layers and FCM /
+      backend integration are still smoke-tested manually via the example
+      apps — Robolectric / XCTest unit tests on the wrappers haven't been
+      written (very low ROI for a thin forwarding layer).
 
 ## Build/publish notes
 
