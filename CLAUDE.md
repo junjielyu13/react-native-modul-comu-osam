@@ -168,7 +168,7 @@ Expected results:
 ## Example app (`example-npm/`)
 
 Same UI and Firebase wiring as `example/`, but its `package.json` depends on
-`react-native-modul-comu-osam@^0.2.0` from the **public npm registry**
+`react-native-modul-comu-osam@^0.3.0` from the **public npm registry**
 instead of the local `portal:..` workspace. Because the library resolves
 through normal `node_modules`, this variant:
 

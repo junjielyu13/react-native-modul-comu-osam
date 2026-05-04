@@ -504,9 +504,21 @@ enum OSAMResultEnum {
 
 This package tracks the upstream
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
-minor version. The current release tracks upstream `3.2.0` and exposes the
-full OSAMCommons surface — including the `isOnline()` reachability probe and
-the `isDarkMode` / `applyComModStyles` dialog options added upstream in 3.2.0.
+minor version. Use the table below to pick a library version compatible
+with the upstream OSAM release you intend to ship against:
+
+| Library version | OSAM upstream | Highlights |
+|---|---|---|
+| `0.3.0` | `3.2.0` | `isOnline()`, `isDarkMode` / `applyComModStyles` dialog params, `debug` flag on default wrappers, resilient native init |
+| `0.2.1` | `3.1.0` | Catalan README, podspec source/tag fix, `example-npm/` consumer app |
+| `0.2.0` | `3.1.0` | Full OSAMCommons surface + Firebase-backed default wrappers (Android & iOS) |
+| `0.1.1` | `3.1.0` | Podspec `homepage` fix |
+| `0.1.0` | `3.1.0` | Initial scaffold |
+
+The current release tracks upstream `3.2.0` and exposes the full
+OSAMCommons surface — including the `isOnline()` reachability probe and
+the `isDarkMode` / `applyComModStyles` dialog options added upstream in
+3.2.0. See [`CHANGELOG.md`](./CHANGELOG.md) for the full release notes.
 
 ## License
 

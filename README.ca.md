@@ -482,9 +482,22 @@ enum OSAMResultEnum {
 
 Aquest paquet segueix la versió menor del projecte original
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam).
+Feu servir la taula següent per triar una versió de la llibreria
+compatible amb la versió d'OSAM original que vulgueu utilitzar:
+
+| Versió de la llibreria | OSAM original | Novetats |
+|---|---|---|
+| `0.3.0` | `3.2.0` | `isOnline()`, paràmetres de diàleg `isDarkMode` / `applyComModStyles`, flag `debug` als wrappers per defecte, inicialització nativa resilient |
+| `0.2.1` | `3.1.0` | README en català, correcció del `source`/`tag` del podspec, app consumidora `example-npm/` |
+| `0.2.0` | `3.1.0` | Superfície completa d'OSAMCommons + wrappers per defecte basats en Firebase (Android i iOS) |
+| `0.1.1` | `3.1.0` | Correcció del `homepage` al podspec |
+| `0.1.0` | `3.1.0` | Estructura inicial |
+
 La versió actual segueix la `3.2.0` original i exposa tota la superfície
-d'OSAMCommons — incloent-hi la comprovació de connectivitat `isOnline()` i
-les opcions de diàleg `isDarkMode` / `applyComModStyles` afegides a la 3.2.0.
+d'OSAMCommons — incloent-hi la comprovació de connectivitat `isOnline()`
+i les opcions de diàleg `isDarkMode` / `applyComModStyles` afegides a la
+3.2.0. Consulteu [`CHANGELOG.md`](./CHANGELOG.md) per a les notes de
+versió completes.
 
 ## Llicència
 
