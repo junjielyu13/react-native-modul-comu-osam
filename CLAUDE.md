@@ -82,7 +82,7 @@ Backend endpoint resolution (defaults):
 - React Native: **0.79.1**
 - React: **19.0.0**
 - Kotlin: **2.0.21**
-- OSAM upstream: **3.1.0** (tracked as library version `0.1.0`)
+- OSAM upstream: **3.2.0** (tracked as library version `0.3.0`)
 - Android: minSdk 26, compileSdk 35, target 35
 - iOS: min iOS 13.0
 
@@ -214,7 +214,7 @@ Not yet done:
       `yarn android` end-to-end still needs an emulator / device to confirm install.
 - [x] **Verify iOS build**: `xcodebuild … -scheme Example` builds clean.
       `yarn ios` end-to-end still needs a simulator launch to confirm install.
-      Consumer Podfile must declare `pod 'OSAMCommon', :git => '…', :tag => '3.1.0'`
+      Consumer Podfile must declare `pod 'OSAMCommon', :git => '…', :tag => '3.2.0'`
       since the dep is not on CocoaPods trunk.
 - [ ] Publish to a registry (npm? GitHub Packages?). No registry decision yet.
 - [ ] CI (none configured).

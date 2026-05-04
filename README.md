@@ -16,13 +16,13 @@ and exposes it to React Native.
 > (`cat.bcn.parkguell.altech`) is an **example only** — it's the one
 > registered for the Park Güell demo app, not a value you should reuse.
 
-Exposes all nine `OSAMCommons` operations to JavaScript with the same method
+Exposes all ten `OSAMCommons` operations to JavaScript with the same method
 names as the upstream library:
 
 | Method | Returns | Status values |
 |---|---|---|
-| `versionControl(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `CANCELLED` · `ERROR` |
-| `rating(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `ERROR` |
+| `versionControl(languageCode, isDarkMode?, applyComModStyles?)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `CANCELLED` · `ERROR` |
+| `rating(languageCode, isDarkMode?, applyComModStyles?)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `ERROR` |
 | `deviceInformation()` | `{ platformName, platformVersion, platformModel }` | — |
 | `appInformation()` | `{ appName, appVersionName, appVersionCode }` | — |
 | `changeLanguageEvent(languageCode)` | `{ status }` | `SUCCESS` · `UNCHANGED` · `ERROR` |
@@ -30,8 +30,12 @@ names as the upstream library:
 | `subscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
 | `unsubscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
 | `getFCMToken()` | `{ token }` | rejects on failure |
+| `isOnline()` | `{ online }` | `true` · `false` (never rejects) |
 
 Supported language codes: `ca` · `es` · `en`.
+
+`versionControl` and `rating` accept two optional booleans added in upstream
+3.2.0: `isDarkMode` (default `false`) and `applyComModStyles` (default `true`).
 
 ## Installation
 
@@ -63,7 +67,7 @@ ships as a static framework):
 target 'YourApp' do
   pod 'OSAMCommon',
     :git => 'https://github.com/AjuntamentdeBarcelona/modul_comu_osam.git',
-    :tag => '3.1.0'
+    :tag => '3.2.0'
 
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true
@@ -334,6 +338,14 @@ import OSAMModule, { OSAMResultEnum } from 'react-native-modul-comu-osam';
 const { status } = await OSAMModule.versionControl('en');
 if (status === OSAMResultEnum.ACCEPTED) { /* user updated */ }
 
+// …or with the 3.2.0 dialog options (positional):
+await OSAMModule.versionControl(
+  'en',
+  true,  // isDarkMode — optional, default false
+  true,  // applyComModStyles — optional, default true
+);
+await OSAMModule.rating('en', true, false);
+
 // Periodic rating prompt.
 await OSAMModule.rating('en');
 
@@ -349,6 +361,10 @@ await OSAMModule.changeLanguageEvent('es');
 await OSAMModule.subscribeToCustomTopic('park-guell-news');
 await OSAMModule.unsubscribeToCustomTopic('park-guell-news');
 const { token } = await OSAMModule.getFCMToken();
+
+// Reachability probe (added in 3.2.0). Resolves with `{ online }` —
+// never rejects, so it's safe to call without a try/catch.
+const { online } = await OSAMModule.isOnline();
 ```
 
 ---
@@ -418,7 +434,7 @@ OSAMConfiguration.wrappersProvider = MyProvider()
 
 ## Example apps
 
-Two smoke-test apps are included, both exercising all nine methods
+Two smoke-test apps are included, both exercising all ten methods
 against the real dev OSAM backend:
 
 - [`example/`](./example/README.md) — consumes the library directly from
@@ -444,10 +460,16 @@ ID you actually plan to use.
 
 ```ts
 interface OSAMModuleInterface {
-  versionControl(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string }>;
-  rating(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string }>;
+  versionControl(
+    languageCode: 'ca' | 'es' | 'en' | string,
+    isDarkMode?: boolean,        // default: false
+    applyComModStyles?: boolean, // default: true
+  ): Promise<{ status: string }>;
+  rating(
+    languageCode: 'ca' | 'es' | 'en' | string,
+    isDarkMode?: boolean,        // default: false
+    applyComModStyles?: boolean, // default: true
+  ): Promise<{ status: string }>;
   deviceInformation():
     Promise<{ platformName: string; platformVersion: string; platformModel: string }>;
   appInformation():
@@ -462,6 +484,8 @@ interface OSAMModuleInterface {
     Promise<{ status: string }>;
   getFCMToken():
     Promise<{ token: string }>;
+  isOnline():
+    Promise<{ online: boolean }>;
 }
 
 enum OSAMResultEnum {
@@ -480,8 +504,9 @@ enum OSAMResultEnum {
 
 This package tracks the upstream
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
-minor version. `0.2.1` is based on upstream `3.1.0` and exposes the full
-OSAMCommons surface.
+minor version. The current release tracks upstream `3.2.0` and exposes the
+full OSAMCommons surface — including the `isOnline()` reachability probe and
+the `isDarkMode` / `applyComModStyles` dialog options added upstream in 3.2.0.
 
 ## License
 

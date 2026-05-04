@@ -90,7 +90,7 @@ yarn install          # installs react-native-modul-comu-osam from npm
 yarn android
 ```
 
-First build pulls `com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:3.1.0`
+First build pulls `com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:3.2.0`
 from JitPack, plus the Firebase BOM / analytics / crashlytics / perf / messaging
 artifacts.
 

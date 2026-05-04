@@ -96,18 +96,36 @@ class OSAMModule(
     }
 
   @ReactMethod
-  fun versionControl(languageCode: String, promise: Promise) {
+  fun versionControl(
+    languageCode: String,
+    isDarkMode: Boolean,
+    applyComModStyles: Boolean,
+    promise: Promise,
+  ) {
     withCommonsStatus(promise) { commons ->
-      commons.versionControl(language = parseLanguage(languageCode)) { response ->
+      commons.versionControl(
+        language = parseLanguage(languageCode),
+        isDarkMode = isDarkMode,
+        applyComModStyles = applyComModStyles,
+      ) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
     }
   }
 
   @ReactMethod
-  fun rating(languageCode: String, promise: Promise) {
+  fun rating(
+    languageCode: String,
+    isDarkMode: Boolean,
+    applyComModStyles: Boolean,
+    promise: Promise,
+  ) {
     withCommonsStatus(promise) { commons ->
-      commons.rating(language = parseLanguage(languageCode)) { response ->
+      commons.rating(
+        language = parseLanguage(languageCode),
+        isDarkMode = isDarkMode,
+        applyComModStyles = applyComModStyles,
+      ) { response ->
         promise.resolve(WritableNativeMap().apply { putString("status", response.name) })
       }
     }
@@ -194,6 +212,27 @@ class OSAMModule(
             promise.reject("FCM_TOKEN_ERROR", response.error.message ?: "Failed to get FCM token", response.error)
         }
       }
+    }
+  }
+
+  // Asynchronous reachability probe added in OSAM 3.2.0. Resolves with
+  // `{ online: false }` (rather than rejecting) on init failure so callers
+  // can treat the answer as a single boolean — same shape as a real offline
+  // response.
+  @ReactMethod
+  fun isOnline(promise: Promise) {
+    val commons = try {
+      resolveOsamCommons()
+    } catch (_: Throwable) {
+      promise.resolve(WritableNativeMap().apply { putBoolean("online", false) })
+      return
+    }
+    try {
+      commons.isOnline { online ->
+        promise.resolve(WritableNativeMap().apply { putBoolean("online", online) })
+      }
+    } catch (_: Throwable) {
+      promise.resolve(WritableNativeMap().apply { putBoolean("online", false) })
     }
   }
 
