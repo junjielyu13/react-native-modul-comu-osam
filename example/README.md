@@ -131,3 +131,4 @@ If you'd rather not ship Firebase, the library supports plugging in custom
 wrappers — see the **Overriding the default wrappers** section of the repo-root
 `README.md`. The previous version of this example used a `NoopWrappersFactory`
 / `NoopWrappersProvider` demonstrating that path; `git log` has the history.
+
