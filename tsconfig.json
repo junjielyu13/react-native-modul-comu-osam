@@ -2,7 +2,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-modul-comu-osam": ["./src/index"]
+      "react-native-modul-comu-osam": ["./src/index"],
+      "react-native-modul-comu-osam/*": ["./*"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
