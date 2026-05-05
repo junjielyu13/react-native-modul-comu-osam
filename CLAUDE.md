@@ -27,6 +27,32 @@ Response enum values returned in `.status`:
 - changeLanguageEvent / firstTimeOrUpdateEvent → `SUCCESS | UNCHANGED | ERROR`
 - subscribeToCustomTopic / unsubscribeToCustomTopic → `ACCEPTED | ERROR`
 
+## Branching model (strict — applies to all sessions)
+
+- **`main`**: tagged release commits + `npm publish` only. Never commit
+  here directly, never merge feature branches into `main`. The only
+  commits on `main` are merge commits coming in from `dev` via release
+  PRs. All `git tag v<X>` and `npm publish` invocations run with `main`
+  checked out.
+- **`dev`**: integration branch. Must always be in a shippable state.
+  No half-finished features, no WIP, no standalone `chore:` commits.
+  Doc / chore / CI changes go through their own branch + PR like
+  anything else. Never push directly.
+- **All work** lives on dedicated branches that PR into `dev`:
+  - `feat/<name>` — new feature or upstream bump
+  - `fix/<name>` — bug fix
+  - `hotfix/<name>` — urgent fix on top of a tagged release
+  - `release/<vX.Y.Z>` — release-prep (version bump, CHANGELOG entry,
+    README / podspec / gradle adjustments)
+- A release flows
+  `release/<vX.Y.Z>` → PR → `dev` → PR → `main` → tag + publish.
+- Both `main` and `dev` are protected — `.github/CODEOWNERS` enforces
+  admin review. PUBLISHING.md is the source-of-truth release checklist.
+
+This rule overrides convenience. Even a one-line tsconfig fix gets a
+`fix/<name>` branch and a PR — don't shortcut into `dev` because the
+change is "small".
+
 ## Repo layout
 
 ```
