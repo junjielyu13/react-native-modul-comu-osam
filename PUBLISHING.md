@@ -206,12 +206,49 @@ git tag -a v<NEW> -m "Release v<NEW>"
 git push origin v<NEW>
 ```
 
-Then on GitHub, draft a release from that tag — paste the relevant
-section of `CHANGELOG.md` as the release notes.
+The tag link in `CHANGELOG.md` (e.g. `…/releases/tag/v<NEW>`) only goes
+live once the tag is pushed — verify it resolves on GitHub before
+moving on. Drafting the GitHub Release on top of the tag is step 8.
 
 ---
 
-## 8. Validate the published tarball with `example-npm/`
+## 8. Draft the GitHub Release notes
+
+**Don't skip this — pushing a tag does not auto-create a Release.**
+The Release page is what consumers (and `npm` install pages, npmjs's
+"repository" link, IDE plugins) link to as the human-readable
+changelog for the version.
+
+1. Open:
+
+   ```
+   https://github.com/junjielyu13/react-native-modul-comu-osam/releases/new?tag=v<NEW>
+   ```
+
+   (replace `<NEW>` with the version you just tagged — for v0.3.0 the
+   URL ends `?tag=v0.3.0`).
+
+2. **Release title**: `v<NEW>` (matches the tag).
+
+3. **Description**: copy-paste the matching `## [<NEW>] — <YYYY-MM-DD>`
+   section of `CHANGELOG.md` verbatim (the `### Added` / `### Changed`
+   / `### Fixed` subsections). Don't paraphrase — `CHANGELOG.md` is the
+   source of truth and the two should stay identical.
+
+4. Leave **"Set as the latest release"** checked (it's the default for
+   the highest semver tag).
+
+5. Publish.
+
+After publishing, sanity-check the Release page is reachable at the tag
+link `CHANGELOG.md` references.
+
+> Hotfixes / pre-releases: tick **"Set as a pre-release"** instead, so
+> the GitHub *latest release* badge keeps pointing at the stable line.
+
+---
+
+## 9. Validate the published tarball with `example-npm/`
 
 `example-npm/` exists specifically to verify the *published* package is
 complete:
@@ -275,7 +312,10 @@ npm publish                                   # prompts for OTP if 2FA on
 git tag -a v<NEW> -m "Release v<NEW>"
 git push origin v<NEW>
 
-# 8. validate the tarball post-publish
+# 8. draft the GitHub Release notes — paste the CHANGELOG.md [<NEW>] section
+open "https://github.com/junjielyu13/react-native-modul-comu-osam/releases/new?tag=v<NEW>"
+
+# 9. validate the tarball post-publish
 cd example-npm && rm -rf node_modules && : > yarn.lock && yarn install && yarn android
 ```
 
@@ -308,7 +348,11 @@ cd example-npm && rm -rf node_modules && : > yarn.lock && yarn install && yarn a
 - **`example-npm/` won't pick up the new version until npm has it.** It
   resolves `^<NEW>` from the public registry, not from the local
   workspace. Reproduce-before-publish belongs to step 5 (Option B), not
-  step 8.
+  step 9.
+- **A pushed tag is not a GitHub Release.** Step 7 only creates the git
+  tag — the `…/releases/tag/v<NEW>` link `CHANGELOG.md` references will
+  resolve, but with no notes. Step 8 (draft the Release on top of the
+  tag) is what populates the page consumers actually read.
 - **Bump the upstream OSAM tag in BOTH places** (gradle + podspec) when
   the upstream version changes — drift between Android and iOS is silent
   and the example app may build green on one platform while the other
