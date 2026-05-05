@@ -20,7 +20,7 @@ target 'Example' do
   # must declare this explicitly in their own Podfile too.
   pod 'OSAMCommon',
     :git => 'https://github.com/AjuntamentdeBarcelona/modul_comu_osam.git',
-    :tag => '3.1.0'
+    :tag => '3.2.0'
 
   config = use_native_modules!
 

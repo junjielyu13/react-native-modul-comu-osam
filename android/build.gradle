@@ -46,7 +46,9 @@ android {
 repositories {
   google()
   mavenCentral()
-  maven { url "https://jitpack.io" }
+  maven {
+    url "https://jitpack.io"
+  }
 }
 
 dependencies {
@@ -55,7 +57,7 @@ dependencies {
 
   // OSAM common module (Barcelona City Council) — `api` so consumers writing
   // custom `OSAMWrappersFactory` implementations can import `cat.bcn.commonmodule.*`.
-  api "com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:${safeExtGet('osamCommonVersion', '3.1.0')}"
+  api "com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:${safeExtGet('osamCommonVersion', '3.2.0')}"
 
   // Firebase default wrappers — compileOnly so consumer app's Firebase versions are used at runtime.
   // Consumer must either provide these Firebase deps in their app, OR override the wrapper factory.

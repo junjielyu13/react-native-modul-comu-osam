@@ -128,11 +128,17 @@ public class OSAMModule: NSObject, RCTBridgeModule {
   @objc
   func versionControl(
     _ languageCode: String,
+    isDarkMode: Bool,
+    applyComModStyles: Bool,
     resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
     withCommonsStatus(resolver: resolver) { commons in
-      commons.versionControl(language: self.parseLanguage(languageCode)) { response in
+      commons.versionControl(
+        language: self.parseLanguage(languageCode),
+        isDarkMode: isDarkMode,
+        applyComModStyles: applyComModStyles
+      ) { response in
         resolver(["status": response.name])
       }
     }
@@ -141,11 +147,17 @@ public class OSAMModule: NSObject, RCTBridgeModule {
   @objc
   func rating(
     _ languageCode: String,
+    isDarkMode: Bool,
+    applyComModStyles: Bool,
     resolver: @escaping RCTPromiseResolveBlock,
     rejecter: @escaping RCTPromiseRejectBlock
   ) {
     withCommonsStatus(resolver: resolver) { commons in
-      commons.rating(language: self.parseLanguage(languageCode)) { response in
+      commons.rating(
+        language: self.parseLanguage(languageCode),
+        isDarkMode: isDarkMode,
+        applyComModStyles: applyComModStyles
+      ) { response in
         resolver(["status": response.name])
       }
     }
@@ -256,6 +268,28 @@ public class OSAMModule: NSObject, RCTBridgeModule {
           rejecter("FCM_TOKEN_ERROR", errorResp.error.message ?? "Failed to get FCM token", nil)
         } else {
           rejecter("FCM_TOKEN_ERROR", "Unknown TokenResponse", nil)
+        }
+      }
+    }
+  }
+
+  // Asynchronous reachability probe added in OSAM 3.2.0. Resolves with
+  // `{ "online": false }` (rather than rejecting) on init failure so callers
+  // can treat the answer as a single boolean — same shape as a real offline
+  // response.
+  @objc
+  func isOnline(
+    _ resolver: @escaping RCTPromiseResolveBlock,
+    rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async {
+      self.resolveOsamCommons { commons in
+        guard let commons = commons else {
+          resolver(["online": false])
+          return
+        }
+        commons.isOnline { online in
+          resolver(["online": online.boolValue])
         }
       }
     }

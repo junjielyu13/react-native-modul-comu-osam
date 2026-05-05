@@ -18,6 +18,7 @@ import FirebaseMessaging
 @objc public class DefaultOSAMWrappersProvider: NSObject, OSAMWrappersProvider {
   private let explicitEndpoint: String?
   private let debug: Bool
+  private var cachedEndpoint: String?
 
   @objc public override convenience init() {
     self.init(backendEndpoint: nil, debug: false)
@@ -38,6 +39,7 @@ import FirebaseMessaging
 
   public var backendEndpoint: String {
     if let explicit = explicitEndpoint { return explicit }
+    if let cached = cachedEndpoint { return cached }
     guard
       let path = Bundle.main.path(forResource: "config_keys", ofType: "plist"),
       let dict = NSDictionary(contentsOfFile: path),
@@ -47,6 +49,8 @@ import FirebaseMessaging
       // Returning empty signals "not configured" to OSAMModule, which then
       // resolves OSAM calls with a graceful ERROR instead of crashing the
       // app. fatalError here would defeat the whole graceful-init contract.
+      // Don't cache the empty result — leave the door open for the plist
+      // to appear later (e.g. test bundles registering it post-init).
       let issue = "DefaultOSAMWrappersProvider.backendEndpoint: common_module_endpoint missing from config_keys.plist. " +
         "Either add it, or pass an explicit backendEndpoint to DefaultOSAMWrappersProvider."
       if debug {
@@ -59,6 +63,7 @@ import FirebaseMessaging
       }
       return ""
     }
+    cachedEndpoint = endpoint
     return endpoint
   }
 

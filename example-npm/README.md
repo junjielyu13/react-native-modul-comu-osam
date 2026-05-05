@@ -1,7 +1,7 @@
 # Example app — `react-native-modul-comu-osam` (npm)
 
 Same nine-button smoke-test UI as `../example/`, but consumes the library
-from **npm** (`react-native-modul-comu-osam@^0.2.1` on the public registry)
+from **npm** (`react-native-modul-comu-osam@^0.3.0` on the public registry)
 instead of the local workspace.
 
 The point of this variant is to exercise the *published* consumer path: it
@@ -90,7 +90,7 @@ yarn install          # installs react-native-modul-comu-osam from npm
 yarn android
 ```
 
-First build pulls `com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:3.1.0`
+First build pulls `com.github.AjuntamentdeBarcelona.modul_comu_osam:common-android:3.2.0`
 from JitPack, plus the Firebase BOM / analytics / crashlytics / perf / messaging
 artifacts.
 

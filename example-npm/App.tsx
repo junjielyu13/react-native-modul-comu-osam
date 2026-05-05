@@ -10,7 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import OSAMModule from 'react-native-modul-comu-osam';
+import OSAMModule, { type OSAMLanguage } from 'react-native-modul-comu-osam';
 import libPkg from 'react-native-modul-comu-osam/package.json';
 import appPkg from './package.json';
 
@@ -18,12 +18,16 @@ const BUNDLE_ID = DeviceInfo.getBundleId();
 const LIB_INSTALLED_VERSION = libPkg.version;
 const LIB_DEPENDENCY_SPEC =
   appPkg.dependencies['react-native-modul-comu-osam'];
+const LANGUAGES: OSAMLanguage[] = ['ca', 'es', 'en'];
 
 type Result = { label: string; value: string; ok: boolean };
 
 function App(): React.JSX.Element {
-  const isDark = useColorScheme() === 'dark';
+  const systemDark = useColorScheme() === 'dark';
   const [results, setResults] = useState<Result[]>([]);
+  const [lang, setLang] = useState<OSAMLanguage>('en');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(systemDark);
+  const isDark = isDarkMode;
 
   const record = (label: string, value: unknown, ok: boolean) => {
     setResults((prev) => [
@@ -41,27 +45,30 @@ function App(): React.JSX.Element {
     }
   };
 
+  const darkLabel = isDarkMode ? 'dark' : 'light';
   const actions: Array<{ title: string; onPress: () => void }> = [
     { title: 'appInformation()', onPress: () => run('appInformation', () => OSAMModule.appInformation()) },
     { title: 'deviceInformation()', onPress: () => run('deviceInformation', () => OSAMModule.deviceInformation()) },
-    { title: "versionControl('en')", onPress: () => run("versionControl('en')", () => OSAMModule.versionControl('en')) },
-    { title: "rating('en')", onPress: () => run("rating('en')", () => OSAMModule.rating('en')) },
-    { title: "changeLanguageEvent('es')", onPress: () => run("changeLanguageEvent('es')", () => OSAMModule.changeLanguageEvent('es')) },
-    { title: "firstTimeOrUpdateEvent('en')", onPress: () => run("firstTimeOrUpdateEvent('en')", () => OSAMModule.firstTimeOrUpdateEvent('en')) },
+    { title: `versionControl('${lang}', ${darkLabel})`, onPress: () => run(`versionControl('${lang}', ${darkLabel})`, () => OSAMModule.versionControl(lang, isDarkMode)) },
+    { title: `rating('${lang}', ${darkLabel})`, onPress: () => run(`rating('${lang}', ${darkLabel})`, () => OSAMModule.rating(lang, isDarkMode)) },
+    { title: `changeLanguageEvent('${lang}')`, onPress: () => run(`changeLanguageEvent('${lang}')`, () => OSAMModule.changeLanguageEvent(lang)) },
+    { title: `firstTimeOrUpdateEvent('${lang}')`, onPress: () => run(`firstTimeOrUpdateEvent('${lang}')`, () => OSAMModule.firstTimeOrUpdateEvent(lang)) },
     { title: "subscribeToCustomTopic('demo')", onPress: () => run("subscribeToCustomTopic('demo')", () => OSAMModule.subscribeToCustomTopic('demo')) },
     { title: "unsubscribeToCustomTopic('demo')", onPress: () => run("unsubscribeToCustomTopic('demo')", () => OSAMModule.unsubscribeToCustomTopic('demo')) },
     { title: 'getFCMToken()', onPress: () => run('getFCMToken', () => OSAMModule.getFCMToken()) },
+    { title: 'isOnline()', onPress: () => run('isOnline', () => OSAMModule.isOnline()) },
   ];
 
   const bg = { backgroundColor: isDark ? '#111' : '#f5f5f5' };
   const fg = { color: isDark ? '#fff' : '#111' };
+  const segBorder = isDark ? '#333' : '#ddd';
 
   return (
     <SafeAreaView style={[styles.safe, bg]}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.title, fg]}>react-native-modul-comu-osam</Text>
         <Text style={[styles.subtitle, fg]}>Example smoke-test app</Text>
-        <View style={[styles.meta, { borderColor: isDark ? '#333' : '#ddd' }]}>
+        <View style={[styles.meta, { borderColor: segBorder }]}>
           <Text style={[styles.metaRow, fg]}>
             <Text style={styles.metaKey}>
               {Platform.OS === 'ios' ? 'Bundle ID' : 'Application ID'}:{' '}
@@ -77,6 +84,55 @@ function App(): React.JSX.Element {
             {LIB_INSTALLED_VERSION}
           </Text>
         </View>
+
+        <View style={styles.controlsRow}>
+          <Text style={[styles.controlsLabel, fg]}>Language</Text>
+          <View style={[styles.segmented, { borderColor: segBorder }]}>
+            {LANGUAGES.map((code) => {
+              const active = code === lang;
+              return (
+                <TouchableOpacity
+                  key={code}
+                  onPress={() => setLang(code)}
+                  style={[
+                    styles.segment,
+                    active && styles.segmentActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      { color: active ? '#fff' : isDark ? '#ddd' : '#333' },
+                    ]}
+                  >
+                    {code.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.controlsRow}>
+          <Text style={[styles.controlsLabel, fg]}>Dark mode</Text>
+          <TouchableOpacity
+            style={[
+              styles.toggle,
+              { borderColor: segBorder, backgroundColor: isDarkMode ? '#2563eb' : 'transparent' },
+            ]}
+            onPress={() => setIsDarkMode((v) => !v)}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                { color: isDarkMode ? '#fff' : isDark ? '#ddd' : '#333' },
+              ]}
+            >
+              {isDarkMode ? 'ON' : 'OFF'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.buttons}>
           {actions.map((a) => (
             <TouchableOpacity key={a.title} style={styles.button} onPress={a.onPress}>
@@ -126,6 +182,36 @@ const styles = StyleSheet.create({
   },
   metaRow: { fontSize: 12, fontFamily: 'Courier' },
   metaKey: { fontWeight: '700' },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  controlsLabel: { fontSize: 14, fontWeight: '600' },
+  segmented: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  segment: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  segmentActive: { backgroundColor: '#2563eb' },
+  segmentText: { fontWeight: '600', fontSize: 13 },
+  toggle: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 8,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  toggleText: { fontWeight: '700', fontSize: 13 },
   buttons: { gap: 8, marginBottom: 16 },
   button: {
     backgroundColor: '#2563eb',
