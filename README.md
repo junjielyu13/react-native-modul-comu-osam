@@ -16,13 +16,13 @@ and exposes it to React Native.
 > (`cat.bcn.parkguell.altech`) is an **example only** — it's the one
 > registered for the Park Güell demo app, not a value you should reuse.
 
-Exposes all nine `OSAMCommons` operations to JavaScript with the same method
+Exposes all ten `OSAMCommons` operations to JavaScript with the same method
 names as the upstream library:
 
 | Method | Returns | Status values |
 |---|---|---|
-| `versionControl(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `CANCELLED` · `ERROR` |
-| `rating(languageCode)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `ERROR` |
+| `versionControl(languageCode, isDarkMode?, applyComModStyles?)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `CANCELLED` · `ERROR` |
+| `rating(languageCode, isDarkMode?, applyComModStyles?)` | `{ status }` | `ACCEPTED` · `DISMISSED` · `ERROR` |
 | `deviceInformation()` | `{ platformName, platformVersion, platformModel }` | — |
 | `appInformation()` | `{ appName, appVersionName, appVersionCode }` | — |
 | `changeLanguageEvent(languageCode)` | `{ status }` | `SUCCESS` · `UNCHANGED` · `ERROR` |
@@ -30,8 +30,12 @@ names as the upstream library:
 | `subscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
 | `unsubscribeToCustomTopic(topic)` | `{ status }` | `ACCEPTED` · `ERROR` |
 | `getFCMToken()` | `{ token }` | rejects on failure |
+| `isOnline()` | `{ online }` | `true` · `false` (never rejects) |
 
 Supported language codes: `ca` · `es` · `en`.
+
+`versionControl` and `rating` accept two optional booleans added in upstream
+3.2.0: `isDarkMode` (default `false`) and `applyComModStyles` (default `true`).
 
 ## Installation
 
@@ -63,7 +67,7 @@ ships as a static framework):
 target 'YourApp' do
   pod 'OSAMCommon',
     :git => 'https://github.com/AjuntamentdeBarcelona/modul_comu_osam.git',
-    :tag => '3.1.0'
+    :tag => '3.2.0'
 
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true
@@ -125,6 +129,24 @@ func application(_ application: UIApplication,
 > Prefer to hard-code the endpoint instead of reading `config_keys.plist`?
 > Pass it to the constructor:
 > `DefaultOSAMWrappersProvider(backendEndpoint: "https://…")`.
+
+> Want internal failure paths (invalid URL strings, FCM errors,
+> missing `common_module_endpoint`, etc.) reported to Crashlytics?
+> Pass `debug: true`:
+> `DefaultOSAMWrappersProvider(backendEndpoint: nil, debug: true)`.
+> Defaults to `false` so production apps stay silent. Silent-failure
+> sites (`createMetric` returning `nil`, `openUrl` returning `false`,
+> missing `common_module_endpoint`) upload as **non-fatals** under the
+> `OSAMReactNativeDebug` error domain. FCM errors (`getFCMToken`,
+> `subscribeToCustomTopic`, `unsubscribeToCustomTopic`) are re-recorded
+> with their original Firebase error type — they still propagate to
+> JS as before.
+>
+> URLs in breadcrumbs are redacted to `scheme://host/path` (query and
+> fragment stripped) so any tokens or PII in query strings don't leave
+> the device. **Custom topic names**, however, are logged in plain text
+> to Crashlytics on FCM failures — keep PII out of topic names if you
+> enable `debug` in production.
 
 ### 5. Push Notifications (required for FCM features)
 
@@ -287,6 +309,24 @@ override fun onCreate() {
 > Pass it to the constructor:
 > `DefaultOSAMWrappersFactory(backendEndpoint = "https://…")`.
 
+> Want internal failure paths (`startActivity` with no handler, FCM
+> errors, missing `common_module_endpoint`, etc.) reported to
+> Crashlytics? Pass `debug = true`:
+> `DefaultOSAMWrappersFactory(debug = true)`.
+> Defaults to `false` so production apps stay silent. Silent-failure
+> sites (`openUrl` swallowing exceptions from `startActivity`) and FCM
+> errors (`getFCMToken`, `subscribeToCustomTopic`,
+> `unsubscribeToCustomTopic`) record the caught exception as a
+> **non-fatal** event — FCM errors still propagate to JS as before.
+> Fatal-path sites (missing endpoint → `IllegalStateException`) only
+> attach a breadcrumb, since the resulting crash itself surfaces them.
+>
+> URLs in breadcrumbs are redacted to `scheme://host/path` (query and
+> fragment stripped) so any tokens or PII in query strings don't leave
+> the device. **Custom topic names**, however, are logged in plain text
+> to Crashlytics on FCM failures — keep PII out of topic names if you
+> enable `debug` in production.
+
 ---
 
 ## Usage
@@ -297,6 +337,14 @@ import OSAMModule, { OSAMResultEnum } from 'react-native-modul-comu-osam';
 // Force / recommended update dialog.
 const { status } = await OSAMModule.versionControl('en');
 if (status === OSAMResultEnum.ACCEPTED) { /* user updated */ }
+
+// …or with the 3.2.0 dialog options (positional):
+await OSAMModule.versionControl(
+  'en',
+  true,  // isDarkMode — optional, default false
+  true,  // applyComModStyles — optional, default true
+);
+await OSAMModule.rating('en', true, false);
 
 // Periodic rating prompt.
 await OSAMModule.rating('en');
@@ -313,6 +361,10 @@ await OSAMModule.changeLanguageEvent('es');
 await OSAMModule.subscribeToCustomTopic('park-guell-news');
 await OSAMModule.unsubscribeToCustomTopic('park-guell-news');
 const { token } = await OSAMModule.getFCMToken();
+
+// Reachability probe (added in 3.2.0). Resolves with `{ online }` —
+// never rejects, so it's safe to call without a try/catch.
+const { online } = await OSAMModule.isOnline();
 ```
 
 ---
@@ -356,6 +408,14 @@ is used. The default factory resolves Firebase classes only when it's
 actually instantiated, so a consumer that **always** installs a custom
 factory can omit Firebase entirely.
 
+> ⚠️ **Set `wrappersFactory` / `wrappersProvider` before the first OSAM
+> call.** The library caches the `OSAMCommons` instance per Activity (or
+> per process on iOS), so the wrappers are baked in at first construction
+> and reassigning the factory / provider afterwards has no effect on the
+> already-constructed instance. In practice this means: assign in
+> `Application.onCreate` (Android) / `application(_:didFinishLaunching…)`
+> (iOS), before the RN bridge starts.
+
 ### iOS
 
 ```swift
@@ -382,7 +442,7 @@ OSAMConfiguration.wrappersProvider = MyProvider()
 
 ## Example apps
 
-Two smoke-test apps are included, both exercising all nine methods
+Two smoke-test apps are included, both exercising all ten methods
 against the real dev OSAM backend:
 
 - [`example/`](./example/README.md) — consumes the library directly from
@@ -408,10 +468,16 @@ ID you actually plan to use.
 
 ```ts
 interface OSAMModuleInterface {
-  versionControl(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string }>;
-  rating(languageCode: 'ca' | 'es' | 'en' | string):
-    Promise<{ status: string }>;
+  versionControl(
+    languageCode: 'ca' | 'es' | 'en' | string,
+    isDarkMode?: boolean,        // default: false
+    applyComModStyles?: boolean, // default: true
+  ): Promise<{ status: string }>;
+  rating(
+    languageCode: 'ca' | 'es' | 'en' | string,
+    isDarkMode?: boolean,        // default: false
+    applyComModStyles?: boolean, // default: true
+  ): Promise<{ status: string }>;
   deviceInformation():
     Promise<{ platformName: string; platformVersion: string; platformModel: string }>;
   appInformation():
@@ -426,6 +492,8 @@ interface OSAMModuleInterface {
     Promise<{ status: string }>;
   getFCMToken():
     Promise<{ token: string }>;
+  isOnline():
+    Promise<{ online: boolean }>;
 }
 
 enum OSAMResultEnum {
@@ -444,8 +512,21 @@ enum OSAMResultEnum {
 
 This package tracks the upstream
 [`modul_comu_osam`](https://github.com/AjuntamentdeBarcelona/modul_comu_osam)
-minor version. `0.2.1` is based on upstream `3.1.0` and exposes the full
-OSAMCommons surface.
+minor version. Use the table below to pick a library version compatible
+with the upstream OSAM release you intend to ship against:
+
+| Library version | OSAM upstream | Highlights |
+|---|---|---|
+| `0.3.0` | `3.2.0` | `isOnline()`, `isDarkMode` / `applyComModStyles` dialog params, `debug` flag on default wrappers, resilient native init |
+| `0.2.1` | `3.1.0` | Catalan README, podspec source/tag fix, `example-npm/` consumer app |
+| `0.2.0` | `3.1.0` | Full OSAMCommons surface + Firebase-backed default wrappers (Android & iOS) |
+| `0.1.1` | `3.1.0` | Podspec `homepage` fix |
+| `0.1.0` | `3.1.0` | Initial scaffold |
+
+The current release tracks upstream `3.2.0` and exposes the full
+OSAMCommons surface — including the `isOnline()` reachability probe and
+the `isDarkMode` / `applyComModStyles` dialog options added upstream in
+3.2.0. See [`CHANGELOG.md`](./CHANGELOG.md) for the full release notes.
 
 ## License
 

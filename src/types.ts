@@ -10,7 +10,7 @@ export enum OSAMResultEnum {
 export type OSAMLanguage = 'ca' | 'es' | 'en';
 
 export interface OSAMStatusResponse {
-  status: `${OSAMResultEnum}` | string;
+  status: `${OSAMResultEnum}`;
   description?: string;
 }
 
@@ -30,12 +30,26 @@ export interface OSAMFCMTokenResponse {
   token: string;
 }
 
-export interface OSAMModuleInterface {
-  /** Force / recommended / info update dialog. Resolves with ACCEPTED | DISMISSED | CANCELLED | ERROR. */
-  versionControl(languageCode: OSAMLanguage | string): Promise<OSAMStatusResponse>;
+export interface OSAMOnlineResponse {
+  online: boolean;
+}
 
-  /** Native rating dialog. Resolves with ACCEPTED | DISMISSED | ERROR. */
-  rating(languageCode: OSAMLanguage | string): Promise<OSAMStatusResponse>;
+export interface OSAMModuleInterface {
+  /** Force / recommended / info update dialog. Resolves with ACCEPTED | DISMISSED | CANCELLED | ERROR.
+   *  `isDarkMode` and `applyComModStyles` mirror the upstream OSAM 3.2.0 params. */
+  versionControl(
+    languageCode: OSAMLanguage | string,
+    isDarkMode?: boolean,
+    applyComModStyles?: boolean
+  ): Promise<OSAMStatusResponse>;
+
+  /** Native rating dialog. Resolves with ACCEPTED | DISMISSED | ERROR.
+   *  `isDarkMode` and `applyComModStyles` mirror the upstream OSAM 3.2.0 params. */
+  rating(
+    languageCode: OSAMLanguage | string,
+    isDarkMode?: boolean,
+    applyComModStyles?: boolean
+  ): Promise<OSAMStatusResponse>;
 
   /** Returns platform name / version / model. */
   deviceInformation(): Promise<OSAMDeviceInformation>;
@@ -59,4 +73,8 @@ export interface OSAMModuleInterface {
 
   /** Returns the FCM registration token. Rejects if retrieval fails. */
   getFCMToken(): Promise<OSAMFCMTokenResponse>;
+
+  /** Asynchronously checks whether the device can reach the OSAM backend.
+   *  Resolves with `{ online: true | false }`. Never rejects. */
+  isOnline(): Promise<OSAMOnlineResponse>;
 }

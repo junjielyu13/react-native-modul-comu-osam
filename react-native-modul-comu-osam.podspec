@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.swift_version = "5.0"
 
   s.dependency "React-Core"
-  s.dependency "OSAMCommon", "~> 3.1.0"
+  s.dependency "OSAMCommon", "~> 3.2.0"
 
   # Firebase default wrappers. Consumers who want to avoid Firebase can
   # swap `OSAMConfiguration.wrappersProvider` at runtime — but these pods
