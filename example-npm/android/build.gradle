@@ -12,10 +12,6 @@ buildscript {
         mavenCentral()
         maven {
             url "https://jitpack.io"
-            credentials {
-                username = project.findProperty("jitpack.username") ?: ""
-                password = project.findProperty("jitpack.token") ?: ""
-            }
         }
     }
     dependencies {
@@ -32,10 +28,6 @@ allprojects {
     repositories {
         maven {
             url "https://jitpack.io"
-            credentials {
-                username = project.findProperty("jitpack.username") ?: ""
-                password = project.findProperty("jitpack.token") ?: ""
-            }
         }
     }
 }
