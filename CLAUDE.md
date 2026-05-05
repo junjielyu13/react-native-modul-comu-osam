@@ -216,9 +216,19 @@ Not yet done:
       `yarn ios` end-to-end still needs a simulator launch to confirm install.
       Consumer Podfile must declare `pod 'OSAMCommon', :git => '…', :tag => '3.2.0'`
       since the dep is not on CocoaPods trunk.
-- [ ] Publish to a registry (npm? GitHub Packages?). No registry decision yet.
-- [ ] CI (none configured).
-- [ ] Tests (none — smoke-test is manual via example app).
+- [x] **Publish to npm** as the public unscoped package
+      `react-native-modul-comu-osam`. Release process documented in
+      `PUBLISHING.md` (version bump locations, `yarn prepare` → `npm pack` →
+      `npm publish` → `v<version>` git tag → `example-npm/` smoke test).
+- [ ] CI (none configured). All four planned pieces — JS checks, Android library compile, iOS example build, tag-triggered npm publish — are documented in `CI.md` along with rollout order and a combined implementation checklist.
+- [x] **Unit tests for the JS bridge** (`__tests__/index.test.ts`,
+      `__tests__/linking-error.test.ts`, `yarn test`). Cover argument
+      passthrough, the `versionControl` / `rating` default-arg substitution,
+      response passthrough, the `OSAMResultEnum` surface, and the
+      `LINKING_ERROR` proxy. Native (Kotlin / Swift) layers and FCM /
+      backend integration are still smoke-tested manually via the example
+      apps — Robolectric / XCTest unit tests on the wrappers haven't been
+      written (very low ROI for a thin forwarding layer).
 
 ## Build/publish notes
 
