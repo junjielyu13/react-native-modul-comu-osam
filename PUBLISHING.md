@@ -88,8 +88,11 @@ If any are empty, the publish will ship a broken package. Don't skip this.
 Either:
 
 - **Option A — local example.** From `example/`, run `yarn android` and
-  `yarn ios` and click through the 9 buttons. This consumes the library
-  via `portal:..` so it sees your local `src/` directly, not `lib/`.
+  `yarn ios` and click through the 10 buttons. This consumes the library
+  via the `react-native.config.js` workspace bridge that points at the
+  repo root, so Metro / autolinking pick up your local `src/` directly,
+  not `lib/`. (See CLAUDE.md *Gotchas* for why `portal:..` / `link:..`
+  don't work under yarn berry's `nodeLinker: node-modules`.)
 - **Option B — pack-and-install dry run.** Build the actual tarball and
   inspect/install it without publishing:
   ```sh

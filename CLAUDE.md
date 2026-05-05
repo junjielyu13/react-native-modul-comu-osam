@@ -153,7 +153,7 @@ cd example && yarn install                # example + link:.. to the library
 yarn android                              # or: cd ios && bundle install && bundle exec pod install && cd .. && yarn ios
 ```
 
-Test UI in `example/App.tsx` has 9 buttons (one per OSAMCommons method).
+Test UI in `example/App.tsx` has 10 buttons (one per OSAMCommons method, plus `isOnline`).
 Expected results:
 - `appInformation` / `deviceInformation` — green, returns JSON.
 - `versionControl('en')` — real backend response from the dev OSAM

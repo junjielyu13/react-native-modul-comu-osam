@@ -10,7 +10,7 @@ export enum OSAMResultEnum {
 export type OSAMLanguage = 'ca' | 'es' | 'en';
 
 export interface OSAMStatusResponse {
-  status: `${OSAMResultEnum}` | string;
+  status: `${OSAMResultEnum}`;
   description?: string;
 }
 

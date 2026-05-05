@@ -179,6 +179,13 @@ out the cache / runner / secrets issues without holding up other work.
         ensure the example app builds without runtime Firebase init in CI
       - Option 2: store the real plist as `base64(GoogleService-Info.plist)`
         in `IOS_GOOGLE_SERVICES_PLIST` secret, decode in the workflow
+      - Option 3: build a separate "no-Firebase" example variant whose
+        `AppDelegate` / `MainApplication` installs a custom
+        `OSAMWrappersProvider` / `OSAMWrappersFactory` that doesn't touch
+        Firebase, and run *that* in CI. This skips the plist problem
+        entirely **and** doubles as a regression test for the headline
+        design claim (the library works without Firebase classes on the
+        classpath when a consumer fully overrides the wrappers).
 - [ ] Same decision for Android `google-services.json` (mirror the iOS
       choice)
 - [ ] (Optional) Branch protection rule on `main`: require the `js` job to

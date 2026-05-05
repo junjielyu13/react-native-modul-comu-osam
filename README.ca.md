@@ -134,6 +134,24 @@ func application(_ application: UIApplication,
 > Passeu-lo al constructor:
 > `DefaultOSAMWrappersProvider(backendEndpoint: "https://…")`.
 
+> Voleu reportar a Crashlytics els camins de fallada interns (URLs no
+> vàlides, errors d'FCM, `common_module_endpoint` absent, etc.)? Passeu
+> `debug: true`:
+> `DefaultOSAMWrappersProvider(backendEndpoint: nil, debug: true)`.
+> Per defecte és `false` perquè les apps en producció no facin soroll.
+> Els punts de fallada silenciosa (`createMetric` retornant `nil`,
+> `openUrl` retornant `false`, `common_module_endpoint` absent) es pugen
+> com a **no fatals** sota el domini d'error `OSAMReactNativeDebug`. Els
+> errors d'FCM (`getFCMToken`, `subscribeToCustomTopic`,
+> `unsubscribeToCustomTopic`) es tornen a registrar amb el seu tipus
+> d'error original de Firebase — segueixen propagant-se a JS com abans.
+>
+> Les URLs als breadcrumbs es redacten a `scheme://host/path` (s'eliminen
+> la query i el fragment) perquè cap token o PII de la query string no
+> surti del dispositiu. **Els noms de tòpic personalitzats**, però,
+> s'enregistren en text pla a Crashlytics quan FCM falla — eviteu posar
+> PII als noms de tòpic si activeu `debug` en producció.
+
 ### 5. Notificacions push (necessari per a les funcions de FCM)
 
 Els mètodes de FCM (`getFCMToken`, `subscribeToCustomTopic`,
@@ -298,6 +316,25 @@ override fun onCreate() {
 > Passeu-lo al constructor:
 > `DefaultOSAMWrappersFactory(backendEndpoint = "https://…")`.
 
+> Voleu reportar a Crashlytics els camins de fallada interns
+> (`startActivity` sense handler, errors d'FCM, `common_module_endpoint`
+> absent, etc.)? Passeu `debug = true`:
+> `DefaultOSAMWrappersFactory(debug = true)`.
+> Per defecte és `false` perquè les apps en producció no facin soroll.
+> Els punts de fallada silenciosa (`openUrl` empassant excepcions de
+> `startActivity`) i els errors d'FCM (`getFCMToken`,
+> `subscribeToCustomTopic`, `unsubscribeToCustomTopic`) registren
+> l'excepció capturada com a esdeveniment **no fatal** — els errors
+> d'FCM segueixen propagant-se a JS com abans. Els punts de camí fatal
+> (endpoint absent → `IllegalStateException`) només adjunten un
+> breadcrumb, ja que el propi crash resultant ja els fa visibles.
+>
+> Les URLs als breadcrumbs es redacten a `scheme://host/path` (s'eliminen
+> la query i el fragment) perquè cap token o PII de la query string no
+> surti del dispositiu. **Els noms de tòpic personalitzats**, però,
+> s'enregistren en text pla a Crashlytics quan FCM falla — eviteu posar
+> PII als noms de tòpic si activeu `debug` en producció.
+
 ---
 
 ## Ús
@@ -381,6 +418,15 @@ Si no establiu cap factoria personalitzada, s'utilitza
 només resol les classes de Firebase quan realment s'instancia, de manera
 que una aplicació consumidora que **sempre** instal·li una factoria
 personalitzada pot ometre Firebase completament.
+
+> ⚠️ **Establiu `wrappersFactory` / `wrappersProvider` abans de la
+> primera crida a OSAM.** La biblioteca cacheja la instància de
+> `OSAMCommons` per Activity (o per procés a iOS), de manera que els
+> wrappers queden fixats a la primera construcció i reassignar la
+> factoria / el provider després no té cap efecte sobre la instància ja
+> construïda. A la pràctica, això vol dir: assigneu a
+> `Application.onCreate` (Android) / `application(_:didFinishLaunching…)`
+> (iOS), abans que arrenqui el bridge de RN.
 
 ### iOS
 

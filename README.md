@@ -408,6 +408,14 @@ is used. The default factory resolves Firebase classes only when it's
 actually instantiated, so a consumer that **always** installs a custom
 factory can omit Firebase entirely.
 
+> ⚠️ **Set `wrappersFactory` / `wrappersProvider` before the first OSAM
+> call.** The library caches the `OSAMCommons` instance per Activity (or
+> per process on iOS), so the wrappers are baked in at first construction
+> and reassigning the factory / provider afterwards has no effect on the
+> already-constructed instance. In practice this means: assign in
+> `Application.onCreate` (Android) / `application(_:didFinishLaunching…)`
+> (iOS), before the RN bridge starts.
+
 ### iOS
 
 ```swift
