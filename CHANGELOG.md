@@ -36,6 +36,13 @@ Tracks upstream **OSAM 3.2.0**.
 - iOS podspec dependency bumped from `OSAMCommon ~> 3.1.0` to `~> 3.2.0`.
   Consumer Podfiles must re-pin the upstream tag:
   `pod 'OSAMCommon', :git => '…', :tag => '3.2.0'`.
+- TypeScript: `OSAMStatusResponse.status` is now strictly typed as                                                                    
+  `${OSAMResultEnum}` (the previous `| string` widening made the                                                                      
+  template-literal half useless). Consumers comparing against arbitrary                                                               
+  strings should switch to `OSAMResultEnum` constants.                                                                                
+- iOS `DefaultOSAMWrappersProvider` now caches `backendEndpoint` after                                                                
+  the first non-empty plist read (perf only — empty results are not                                                                   
+  cached, so the graceful-init contract is preserved).
 
 ## [0.2.1] — 2026-04-18
 
