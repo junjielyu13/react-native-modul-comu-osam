@@ -105,12 +105,44 @@ Backend endpoint resolution (defaults):
 
 ## Versions
 
-- React Native: **0.79.1**
-- React: **19.0.0**
+The library's own native module compiles against:
 - Kotlin: **2.0.21**
-- OSAM upstream: **3.2.0** (tracked as library version `0.3.0`)
-- Android: minSdk 26, compileSdk 35, target 35
+- Android: minSdk 26, compileSdk 35, target 35, JDK 17
 - iOS: min iOS 13.0
+- OSAM upstream: **3.2.0** (tracked as library version `0.3.0`)
+
+These are the floor — the library is intentionally decoupled from any
+specific React Native version. `peerDependencies` accepts `react-native: "*"`
+and the JS layer only uses long-stable APIs (`NativeModules`, `Platform`).
+On Android/iOS the module uses the **legacy bridge** (`ReactContextBaseJavaModule` /
+`RCTBridgeModule`), which is still supported in current RN via the new-arch
+interop layer.
+
+The example apps ship against:
+- React Native: **0.85.3**
+- React: **19.2.3**
+- Kotlin: **2.1.20**
+- Android: compileSdk/targetSdk **36** (Android 16), AGP transitive
+- Node: ≥ 22.11.0
+- `@react-native-community/cli`: **20.1.x**
+
+Bumping the example apps' RN version does **not** affect the library's
+compatibility — see "Library RN compatibility" below.
+
+## Library RN compatibility
+
+The library is RN-version-agnostic by construction:
+- `peerDependencies` is `*` — no upper or lower bound
+- JS uses only `NativeModules` and `Platform` (stable since RN 0.60)
+- Native modules use the legacy bridge API, which still works under
+  bridgeless / new-arch via interop on RN 0.74+
+- Library `android/build.gradle` defers `compileSdk` / `minSdk` / `targetSdk`
+  to the consumer via `safeExtGet`; the hard floors are JDK 17 (matches RN
+  0.73+) and iOS 13 (matches RN 0.71+)
+
+`example/` and `example-npm/` track the latest RN release to validate
+forward compatibility. To formally test an older RN floor, add a sibling
+`example-rn-<minor>/` rather than downgrading the existing examples.
 
 ## Native package/module names
 
@@ -124,11 +156,21 @@ Backend endpoint resolution (defaults):
 
 ## Example app (`example/`)
 
-Bootstrapped via `npx @react-native-community/cli@18.0.0 init` (so all
-standard RN scaffolding is present). Uses the library's **Firebase-backed
-default wrappers** (`DefaultOSAMWrappersFactory` / `DefaultOSAMWrappersProvider`),
-so the full FCM surface works end-to-end (real `getFCMToken`,
-`subscribeToCustomTopic`, analytics, crashlytics, performance).
+Bootstrapped via `npx @react-native-community/cli@20.1.x init Example
+--version 0.85.3` (so all standard RN scaffolding is present). Uses the
+library's **Firebase-backed default wrappers** (`DefaultOSAMWrappersFactory`
+/ `DefaultOSAMWrappersProvider`), so the full FCM surface works end-to-end
+(real `getFCMToken`, `subscribeToCustomTopic`, analytics, crashlytics,
+performance).
+
+On RN 0.85 the `MainApplication.kt` shape changed — it now overrides
+`reactHost: ReactHost by lazy { ... }` and calls
+`ReactNativeApplicationEntryPoint.loadReactNative(this)` instead of the
+old `ReactNativeHost` + `SoLoader.init` pattern. `OSAMConfiguration.wrappersFactory`
+MUST be set **before** `loadReactNative(this)`, because `OSAMPackage`'s
+no-arg constructor reads the factory at construction time, and that
+happens when `reactHost` is first accessed inside `loadReactNative`. The
+new arch (`newArchEnabled=true`) is the scaffold default on 0.85.
 
 The example's `applicationId` (Android) and `PRODUCT_BUNDLE_IDENTIFIER` (iOS)
 are both set to `cat.bcn.parkguell.altech`. The two Firebase config files
@@ -151,13 +193,13 @@ On Android the library's `resolveEndpointFromResources` uses
 the app works. `config_keys.xml` is preferred purely for symmetry with iOS
 and to keep config keys separate from UI strings.
 
-`MainApplication.kt` and `AppDelegate.swift` call the **no-arg**
-`DefaultOSAMWrappersFactory()` / `DefaultOSAMWrappersProvider()` so the
-endpoint is resolved from those resources at runtime. To redirect the
-example at a different backend, edit the two resource files — no Kotlin
-/ Swift change needed. Without matching app/backend identifiers, OSAM
-calls just return `status: "ERROR"` because the backend doesn't recognize
-the identifier.
+`MainApplication.kt` constructs `DefaultOSAMWrappersFactory(debug = true)`
+and `AppDelegate.swift` constructs `DefaultOSAMWrappersProvider(backendEndpoint: nil, debug: true)`,
+so the endpoint is resolved from those resources at runtime. To redirect
+the example at a different backend, edit the two resource files — no
+Kotlin / Swift change needed. Without matching app/backend identifiers,
+OSAM calls just return `status: "ERROR"` because the backend doesn't
+recognize the identifier.
 
 **Firebase wiring in the example:**
 - Android: `example/android/build.gradle` declares the google-services /
@@ -230,7 +272,7 @@ Completed:
 - [x] Android native module + `DefaultOSAMWrappersFactory` with Firebase
 - [x] iOS native module + `DefaultOSAMWrappersProvider` with Firebase + podspec
 - [x] README with install/usage/override docs
-- [x] `example/` RN 0.79.1 smoke-test app with Firebase-backed default wrappers
+- [x] `example/` RN 0.85.3 smoke-test app with Firebase-backed default wrappers
 - [x] `example-npm/` — same smoke-test app but consuming the library from the
       published npm package, for validating the tarball before/after a release
 
@@ -280,8 +322,10 @@ Not yet done:
   yarn berry treat the whole repo as a workspace project and rejects `yarn
   install` inside `example/` ("nearest package directory … doesn't seem to
   be part of the project"). Removed from root. `example/yarn.lock` and
-  `example-npm/yarn.lock` exist as empty files so berry treats each example
-  as an independent project.
+  `example-npm/yarn.lock` are committed as **empty sentinel files** so
+  berry treats each example as an independent project — `yarn install`
+  inside each populates the lock, but the canonical committed state is
+  empty (see PUBLISHING.md for the `: > yarn.lock` smoke-test pattern).
 - **Don't add `"workspaces": ["example"]` to root `package.json`.** With
   `nodeLinker: node-modules`, yarn berry does NOT create a self-symlink
   (`node_modules/react-native-modul-comu-osam`) for the root workspace,
