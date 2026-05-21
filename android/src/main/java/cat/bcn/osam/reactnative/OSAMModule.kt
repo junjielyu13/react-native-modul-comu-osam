@@ -31,7 +31,12 @@ class OSAMModule(
   // when the cache is populated, to avoid presenting on a stale/destroyed
   // Activity.
   private fun resolveOsamCommons(): OSAMCommons {
-    val activity = currentActivity
+    // Use ReactApplicationContext.currentActivity rather than the inherited
+    // ReactContextBaseJavaModule.getCurrentActivity() — the latter was
+    // deprecated in RN 0.80 and the property-access shortcut stopped working
+    // when ReactContextBaseJavaModule was rewritten in Kotlin (Kotlin `fun
+    // getX()` doesn't expose an `x` property the way Java getters do).
+    val activity = reactApplicationContext.currentActivity
       ?: throw IllegalStateException("no current Activity")
     osamCommonsCache?.let {
       it.setActivity(activity)
